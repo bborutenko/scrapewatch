@@ -1,0 +1,24 @@
+[project]
+name = "scrapewatch"
+version = "0.1.0"
+description = "Open-source observability for web scrapers: catches challenge pages behind fake 200s, schema drift, and silent data failures."
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = []
+
+[project.optional-dependencies]
+requests = ["requests>=2.34.2"]
+httpx = ["httpx>=0.27"]
+playwright = ["playwright>=1.40"]
+all = ["requests>=2.34.2", "httpx>=0.27", "playwright>=1.40"]
+
+[dependency-groups]
+dev = ["httpx>=0.27", "pytest>=8.4", "requests>=2.34.2"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--import-mode=importlib"
+
+[build-system]
+requires = ["uv_build>=0.13.8,<0.14.0"]
+build-backend = "uv_build"
