@@ -6,7 +6,9 @@ for type checkers only; runtime dispatch matches on the client's class
 module and qualname, which needs no imports at all.
 """
 
+import logging
 import typing
+from collections.abc import Sequence
 
 from .interceptors import wrap_client
 
@@ -17,6 +19,8 @@ if typing.TYPE_CHECKING:
     from playwright.async_api import BrowserContext as AsyncBrowserContext
     from playwright.sync_api import Browser as SyncBrowser
     from playwright.sync_api import BrowserContext as SyncBrowserContext
+
+logger = logging.getLogger("scrapewatch.client")
 
 __all__ = [
     "ClientSpec",
@@ -75,15 +79,24 @@ def client_kind(client: object) -> str | None:
     return next((spec.kind for spec in SUPPORTED_CLIENTS if spec.matches(client)), None)
 
 
-def watch[C: WatchableClient](client: C, *, job: str) -> C:
+def watch[C: WatchableClient](client: C, *, job: str, rules: Sequence[str] | None = None) -> C:
     """Wrap a scraper client so scrapewatch observes its traffic.
 
     The client's library must be installed for the object to exist at all,
     so availability is not re-checked here: the interceptor module for the
     detected kind is imported lazily, and only that one (ADR-5).
+
+    ``rules`` layers extra YAML rule files over the packaged detectors;
+    a user rule overrides a canonical one by id (interfaces.md B.1).
     """
     if job == "":
         raise ValueError("job must be a non-empty string")
+
+    # double-wrap protection (interceptors.md §3): one wrap, one job —
+    # an already-watched client comes back unchanged, with a warning
+    if getattr(client, "_scrapewatch_wrapped", False):
+        logger.warning("watch(): client is already watched; returning it unchanged")
+        return client
 
     kind = client_kind(client)
 
@@ -92,4 +105,4 @@ def watch[C: WatchableClient](client: C, *, job: str) -> C:
         name = f"{type(client).__module__}.{type(client).__qualname__}"
         raise TypeError(f"watch() does not support {name}; supported clients: {supported}")
 
-    return wrap_client(kind, client, job=job)
+    return wrap_client(kind, client, job=job, rules=rules)

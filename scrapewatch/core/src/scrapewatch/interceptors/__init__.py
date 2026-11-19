@@ -7,6 +7,7 @@ the httpx or playwright code paths (ADR-5).
 """
 
 import importlib
+from collections.abc import Sequence
 from typing import Any
 
 # kind -> interceptor submodule of this package
@@ -19,7 +20,7 @@ _IMPLEMENTED: dict[str, str] = {
 _PLANNED = ("httpx", "playwright")
 
 
-def wrap_client(kind: str, client: Any, *, job: str) -> Any:
+def wrap_client(kind: str, client: Any, *, job: str, rules: Sequence[str] | None = None) -> Any:
     """Wrap ``client`` with the interceptor registered for its library kind."""
 
     if kind in _PLANNED:
@@ -29,9 +30,9 @@ def wrap_client(kind: str, client: Any, *, job: str) -> Any:
         )
     
     module_name = _IMPLEMENTED.get(kind)
-
+    
     if module_name is None:
         raise TypeError(f"unknown client kind {kind!r}")
     
     module = importlib.import_module(f".{module_name}", __package__)
-    return module.wrap(client, job=job)
+    return module.wrap(client, job=job, rules=rules)

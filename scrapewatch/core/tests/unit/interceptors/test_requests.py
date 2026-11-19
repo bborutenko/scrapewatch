@@ -48,3 +48,44 @@ def test_every_response_passes_the_capture_hook():
         assert watched.get("https://example.com/prices").status_code == 200
 
     assert watched._scrapewatch_seen == 3
+
+
+def test_each_wrap_gets_its_own_run_id():
+    # contract A.1: run_id is explicit, one run per wrap()
+    first = wrap(_configured_session(), job="ebay-prices")
+    second = wrap(_configured_session(), job="ebay-prices")
+
+    assert first._scrapewatch_jobref.name == "ebay-prices"
+    assert first._scrapewatch_jobref.run_id != second._scrapewatch_jobref.run_id
+
+
+def test_invalid_custom_rules_fail_loudly_at_wrap_time(tmp_path):
+    # C.3.5: a broken rule file is a setup-time error, not a mid-scrape surprise
+    import pytest
+
+    from scrapewatch.core.rules import RuleLoadError
+
+    broken = tmp_path / "bad.yaml"
+    broken.write_text(
+        "id: bad\nname: Bad\nverdict: blocked\nseverity: high\n"
+        "match:\n  any_of:\n    - body_re: ['(']\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RuleLoadError):
+        wrap(_configured_session(), job="ebay-prices", rules=[broken])
+
+
+def test_custom_rules_replace_the_engine_per_session(tmp_path):
+    custom = tmp_path / "custom.yaml"
+    custom.write_text(
+        "id: my-marker\nname: My marker\nverdict: garbage\nseverity: medium\n"
+        "match:\n  any_of:\n    - body_re: ['prices']\n",
+        encoding="utf-8",
+    )
+
+    watched = wrap(_configured_session(), job="ebay-prices", rules=[custom])
+
+    assert watched._scrapewatch_engine is not None
+    rule_ids = {rule.id for rule in watched._scrapewatch_engine._rules}
+    assert "my-marker" in rule_ids

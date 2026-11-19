@@ -6,6 +6,15 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import pytest
 
 
+#: fake-200: a challenge page served behind HTTP 200 — the failure mode
+#: scrapewatch exists for (CONCEPTS.md "fake-200")
+CHALLENGE_PAGE = (
+    b"<html><head><title>Just a moment...</title></head>"
+    b"<body><script src='https://challenges.cloudflare.com/turnstile/v0/api.js'></script>"
+    b"</body></html>"
+)
+
+
 class _PricesHandler(BaseHTTPRequestHandler):
     """Serves an HTML body on every path; ``/redirect`` bounces to ``/final``."""
 
@@ -14,6 +23,13 @@ class _PricesHandler(BaseHTTPRequestHandler):
             self.send_response(302)
             self.send_header("Location", "/final")
             self.end_headers()
+            return
+        if self.path.startswith("/challenge"):
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Length", str(len(CHALLENGE_PAGE)))
+            self.end_headers()
+            self.wfile.write(CHALLENGE_PAGE)
             return
         body = b"<html>prices</html>"
         self.send_response(200)
