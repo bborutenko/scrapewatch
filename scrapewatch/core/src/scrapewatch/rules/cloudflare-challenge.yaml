@@ -1,0 +1,21 @@
+# Phase 1 seed detector — verbatim from contracts/interfaces.md C.1.
+# The rest of the Phase 1 set (datadome, akamai, kasada, captcha-wall,
+# empty-spa-shell, login-wall, geo-block, soft-404) lands with the
+# fixture corpus: tests/fixtures/<id>/*.html (core-engine.md §5–§6).
+id: cloudflare-challenge
+name: Cloudflare challenge / interstitial
+verdict: blocked
+severity: high
+reference: https://developers.cloudflare.com/waf/
+match:
+  status_hint: [403, 429, 503]     # narrows evaluation, never sufficient alone
+  any_of:
+    - title_re:
+        - "Just a moment"
+        - "Attention Required! | Cloudflare"
+    - body_re:
+        - "cdn-cgi/challenge-platform"
+        - "cf-browser-verification"
+        - "__cf_chl_jschl_tk__"
+    - script_src_re:
+        - "challenges\\.cloudflare\\.com"

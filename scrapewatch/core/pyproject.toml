@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "Open-source observability for web scrapers: catches challenge pages behind fake 200s, schema drift, and silent data failures."
 readme = "README.md"
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "pyyaml>=6.0",
+]
 
 [project.optional-dependencies]
 requests = ["requests>=2.34.2"]
