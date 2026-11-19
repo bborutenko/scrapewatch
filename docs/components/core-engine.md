@@ -1,7 +1,7 @@
 # Core Engine — Detector Evaluation
 
 **Document type:** Component design — target state
-**Status:** (planned) Phase 1 — no implementation exists yet
+**Status:** Phase 1 — in progress: `verdict.py`, `rules.py` and `engine.py` implemented with the packaged `cloudflare-challenge` seed rule (verified against code on 2026-11-19); the remaining detectors and the fixture corpus are (planned)
 **Depends on:** [contracts/interfaces.md](../contracts/interfaces.md) (Event/Verdict contract, YAML rule format)
 
 ## 1. Role
@@ -16,7 +16,7 @@ The core engine is the entire classification business logic of Scrapewatch: it t
 | `scrapewatch/core/verdict.py` | `Verdict` dataclass + aggregation rule (highest severity, precedence `blocked > garbage > drifted > ok`) |
 | `scrapewatch/core/rules.py` | Rule loading and compilation: YAML files → compiled detector set |
 | `scrapewatch/core/engine.py` | `Engine.observe(event: Event) -> Verdict` — the one public entry point |
-| `rules/*.yaml` | Canonical detector rules (data, packaged with the wheel) |
+| `rules/*.yaml` | Canonical detector rules (data, packaged with the wheel). Interim: shipped as `scrapewatch/rules/` inside the package while the skeleton is nested; moves to the repo root with the Phase 0 flatten |
 
 ## 3. Rule loading
 
@@ -64,6 +64,6 @@ Signature lists are living data in `rules/` — the table above records intent, 
 
 ## 7. Open questions (to resolve in Phase 1 implementation)
 
-- Exact `title` extraction under malformed HTML — fallback to first `<title>…</title>` regex slice?
+- Exact `title` extraction under malformed HTML — resolved (2026-11-19): first `<title>…</title>` regex slice over `body_sample`, HTML entities unescaped; no DOM tree (`engine.py`).
 - Should `status_hint` mismatch ever *suppress* a strong body+title double match? (Current answer: no — hint adjusts confidence only.)
 - Minimum corpus size per detector before it ships in a release (proposal: ≥ 3 real fixtures each).

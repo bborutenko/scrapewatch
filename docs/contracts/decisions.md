@@ -1,7 +1,7 @@
 # Architectural Decision Record — Scrapewatch
 
 **Document type:** ADR log
-**Status:** Decisions 1–7 accepted 2026-11-13; no implementation exists yet
+**Status:** Decisions 1–8 accepted 2026-11-13/15; skeleton implementation of the client layer has started
 
 Format: each ADR carries **Status** / **Context** / **Decision** / **Consequences**. ADRs are never edited to change their mind — a superseding ADR is added instead. If an ADR and any other doc disagree, the ADR wins.
 
@@ -149,3 +149,29 @@ The Python library (core, interceptors, storage, CLI, and all YAML rules) is Apa
 - Hosted-competitor protection applies exactly where the business value is (server), not where it isn't (library).
 - Rules ship under Apache-2.0 with the library: competitors can reuse signatures, accepted — the moat is the engine, corpus, and server, not the regexes.
 - The Apache-2.0 promise for the library is permanent; no future relicensing of contributed library code will ever be needed.
+
+---
+
+## ADR-8: Dual interaction modes — passive `watch()` and reactive `fetch()`/`guarded()`
+
+**Status:** Accepted, 2026-11-15 — refines ADR-6, does not supersede it
+
+### Context
+
+Passive observation (ADR-6) answers "when did the data stop being real?" — but only after the fact: the user's scraper receives no verdict at the decision point. Production scrapers' retry/proxy-rotation logic keys off status codes, and fake-200s defeat exactly that — the moment a scraper needs to react (a challenge page served as 200 OK) is the moment it has no information. The obvious user question: why only log verdicts to a database instead of handing them to my scraper synchronously so it can react — rotate a proxy, back off, skip the URL?
+
+### Decision
+
+Scrapewatch ships two interaction modes over one engine:
+
+- **Passive** — `sw.watch()`: unchanged ADR-6 behavior. Verdicts computed asynchronously on the analyzer thread, recorded, alerted. Zero code change, ~µs on the caller's path.
+- **Reactive** — `sw.fetch()` context manager and `sw.guarded()` wrapper: the verdict is computed synchronously in the caller's flow and returned (`.verdict`) or raised (`SwBlocked` / `SwGarbage` in guarded mode) so fake-200s become first-class retry triggers for existing retry libraries (tenacity-style decorators). Reactive events are recorded exactly like passive ones — reacting now does not sacrifice history.
+
+Only verdict computation becomes synchronous; recording, drift evaluation and alerting stay on the background analyzer. Internal Scrapewatch errors never raise in any mode: analysis failure degrades to `verdict.status = "unknown"` plus a log line (this is the only additive change to the Verdict contract). The only exceptions that can reach user code are the domain exceptions guarded mode was explicitly asked to raise.
+
+### Consequences
+
+- The highest-value integration for production scrapers (react to fake-200 at the decision point) is now first-class; passive mode remains the zero-effort entry level.
+- Sync verdict costs sub-millisecond-to-low-millisecond regex time per request, paid only by users who asked for it; ADR-6 guarantees stay intact for everyone else.
+- Two more public API surfaces (B.5/B.6 in [interfaces.md](./interfaces.md)) to keep stable and to port in every future SDK; the `unknown` status must be handled by storage, alerts and CLI.
+- Drift/freshness remain observable only through history (they are aggregates over time) — reactive mode does not and should not cover them; the two modes are complementary, not competing.

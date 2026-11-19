@@ -1,8 +1,8 @@
 # Interceptors — The Integration Layer
 
 **Document type:** Component design — target state
-**Status:** (planned) Phase 2 — no implementation exists yet
-**Depends on:** [core-engine.md](./core-engine.md) (produces its Events), [ADR-5](../contracts/decisions.md) (transport-level interception), [ADR-6](../contracts/decisions.md) (fire-and-forget)
+**Status:** Phase 2 — in progress: client dispatch (`client.py`), the requests interceptor and the shared capture path (`base.py`: Event assembly, bounded queue, background analyzer with verdict logging) are wired to the engine — verified against code on 2026-11-19. httpx/Playwright, `fetch.py`/`guarded.py`, storage and alert dispatch remain (planned). Current skeleton lives in a nested uv project (`scrapewatch/core/src/scrapewatch/`); it is flattened to the layout below during Phase 0 cleanup.
+**Depends on:** [core-engine.md](./core-engine.md) (produces its Events), [ADR-5](../contracts/decisions.md) (transport-level interception), [ADR-6](../contracts/decisions.md) (fire-and-forget), [ADR-8](../contracts/decisions.md) (reactive mode)
 
 ## 1. Role
 
@@ -15,6 +15,8 @@ Interceptors are the only part of Scrapewatch that touches user transport object
 | `scrapewatch/interceptors/requests.py` | `requests.Session` | subclass wrapping `request()`/`send()` — captures the final `Response` |
 | `scrapewatch/interceptors/httpx.py` | `httpx.Client` / `httpx.AsyncClient` | native `event_hooks={"response": [...]}`; async variant enqueues without awaiting |
 | `scrapewatch/interceptors/playwright.py` | Playwright `Browser` / `BrowserContext` | wraps context creation; `page.on("response")` + navigation listeners |
+| `scrapewatch/interceptors/fetch.py` | any request callable | reactive context: run `fn`, compute the verdict synchronously, expose `.response`/`.verdict`/`.retry()` ([ADR-8](../contracts/decisions.md)) |
+| `scrapewatch/interceptors/guarded.py` | `requests`/`httpx`/Playwright clients | like `watch()`, but raises `SwBlocked`/`SwGarbage` on bad verdicts (opt-in, [ADR-8](../contracts/decisions.md)) |
 | `scrapewatch/interceptors/base.py` | — | shared: Event assembly, queue, never-raise wrapper |
 
 All third-party imports are lazy: installing `scrapewatch` without `requests`/`httpx`/`playwright` must remain clean; the extra is only imported when `watch()` meets that type ([ADR-5](../contracts/decisions.md)).
@@ -29,6 +31,8 @@ client = sw.watch(any_supported_client, job="ebay-prices",
 - Returns an object the user uses exactly like the original — same methods, same types, same exceptions. Scrapewatch adds no behavior to the transport, it only observes.
 - One wrap, one job: all traffic through the wrapped client belongs to that job. For multi-job scrapers, wrap one client per job or use the explicit `sw.job()` API.
 - Double-wrap protection: `watch(watch(x))` logs a warning and returns the already-wrapped object unchanged.
+
+The reactive siblings (`sw.fetch()`, `sw.guarded()`) deliberately break the "no behavior change" rule — that is their job: they hand the verdict to the caller synchronously so the scraper can react. Full API: [interfaces.md B.5–B.6](../contracts/interfaces.md). Implementation note: `fetch.py` and `guarded.py` reuse the same Event assembly and the same analyzer queue — they only *also* run `engine.observe()` inline and surface the result.
 
 ## 4. Event assembly (per captured response)
 
@@ -69,6 +73,6 @@ response arrives
 
 ## 7. Open questions (Phase 2)
 
-- httpx streaming responses (`client.stream()`): sample the stream prefix or skip body capture?
+- httpx streaming responses (`client.stream()`): sample the stream prefix or skip body capture? (requests resolved 2026-11-19: an unread `stream=True` response contributes no body — `meta.body_skipped` — because reading `.content` would drain the socket; ADR-6 outranks detection.)
 - Playwright: attach at `Browser` or `BrowserContext` level by default? (Current answer: context — cleaner multi-page semantics.)
 - Should transport-level exceptions (connection refused, DNS) become Events with `status_code=None` now, or after Phase 1 ships? (Current answer: now — they are blocked-adjacent signal.)

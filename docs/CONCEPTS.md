@@ -21,11 +21,12 @@ Terms are grouped thematically. Each term is defined exactly once; other docs li
 | Term | Definition |
 |---|---|
 | **Event** | The unit of observation: everything Scrapewatch knows about one HTTP response (or Playwright navigation) — URL, status, headers, body sample and hash, latency, job reference, optionally extracted items. Full field list: [contracts/interfaces.md Part A](./contracts/interfaces.md). |
-| **Verdict** | The engine's judgment about one Event: a `status` (`ok`, `blocked`, `garbage`, `drifted`) plus `detector_id`, `reason`, `confidence` and machine-readable evidence. |
+| **Verdict** | The engine's judgment about one Event: a `status` (`ok`, `blocked`, `garbage`, `drifted`, `unknown`) plus `detector_id`, `reason`, `confidence` and machine-readable evidence. |
 | **`ok`** | The response looks like the real page and the data looks healthy. |
 | **`blocked`** | The response is an anti-bot artifact: challenge page, captcha wall, or access denied, regardless of the HTTP status it arrived with. |
 | **`garbage`** | The response is technically a page but not the page the job expects: empty SPA shell, login/redirect wall, geo-block page, soft-404. |
 | **`drifted`** | The page may render fine but the *data shape* changed: schema violations, collapsing fill rate, volume drop, structure hash change. Arises mostly from job-level aggregation (see [data-quality.md](./components/data-quality.md)), not from single-response detectors. |
+| **`unknown`** | Scrapewatch could not classify the event — its own analysis failed. Degrades to "unclassified", never to an error ([ADR-8](./contracts/decisions.md)). |
 | **fake-200** | The core failure mode Scrapewatch exists for: an anti-bot or placeholder page delivered with HTTP 200, so status-code monitoring sees "success" while the pipeline stores garbage. |
 
 ## Failure taxonomy (what detectors look for)
@@ -67,7 +68,9 @@ Terms are grouped thematically. Each term is defined exactly once; other docs li
 | Term | Definition |
 |---|---|
 | **interceptor** | The adapter that captures responses from a specific client (`requests.Session`, `httpx.Client`, Playwright) and turns them into Events. The only part of Scrapewatch that touches user transport objects. See [interceptors.md](./components/interceptors.md). |
-| **`watch()`** | The one-function integration: `session = sw.watch(requests.Session(), job="...")` — after which every response flows through Scrapewatch. |
+| **`watch()`** | The one-function passive integration: `session = sw.watch(requests.Session(), job="...")` — after which every response flows through Scrapewatch, verdicts delivered asynchronously. |
+| **reactive mode** | Interaction where the verdict is computed synchronously and handed to the scraper at the decision point (`with sw.fetch(...) as r`), so it can act — rotate a proxy, retry, skip ([ADR-8](./contracts/decisions.md)). |
+| **guarded client** | `sw.guarded(client)`: wraps like `watch()`, but `blocked`/`garbage` verdicts raise `SwBlocked`/`SwGarbage` — for integration with existing retry libraries. Strictly opt-in; `watch()` never raises. |
 | **in-process mode** | The only v0.1 operating mode: engine, storage and alerting run inside the user's scraper process (background thread + SQLite). No infrastructure to deploy. |
 | **sidecar mode (future)** | A separate Scrapewatch server receiving Events over HTTP; multi-scraper dashboards and team alerting. Deliberately out of scope for v0.1 — see [ADR-1](./contracts/decisions.md). |
 | **fire-and-forget** | The interception policy: analysis is asynchronous, buffered, and failure-tolerant. Any Scrapewatch error is swallowed and logged; observability must never break the scraper it observes. See [ADR-6](./contracts/decisions.md). |

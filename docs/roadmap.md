@@ -1,7 +1,7 @@
 # Roadmap — Scrapewatch v0.1
 
 **Document type:** Delivery plan
-**Status:** Approved 2026-11-13 — implementation not started
+**Status:** Approved 2026-11-13; reactive mode added to Phase 2 by [ADR-8](./contracts/decisions.md) (2026-11-15) — skeleton implementation started
 **Estimates:** person-days (`ed`), assuming one developer working alone
 
 Priority rule when time is short: Phases 1–2 are the product; Phases 3–4 are its price tag (what a subscription tier would eventually sell); Phase 0 is never skipped.
@@ -18,11 +18,11 @@ Priority rule when time is short: Phases 1–2 are the product; Phases 3–4 are
 
 **Done when:** `engine.observe(event)` returns the correct verdict on every fixture; a challenge page behind HTTP 200 is classified `blocked`, not `ok`. See [components/core-engine.md](./components/core-engine.md).
 
-## 3. Phase 2 — Interceptors (3–4 ed)
+## 3. Phase 2 — Interceptors and reactive mode (4–6 ed)
 
-**Scope:** `sw.watch()` for `requests.Session`, `httpx.Client`, `httpx.AsyncClient`, Playwright `Browser`/`BrowserContext`; `sw.job()` explicit context; the background analyzer thread with the bounded queue and never-raise guarantee ([ARCHITECTURE.md §7](./ARCHITECTURE.md)).
+**Scope:** `sw.watch()` for `requests.Session`, `httpx.Client`, `httpx.AsyncClient`, Playwright `Browser`/`BrowserContext`; `sw.job()` explicit context; the reactive family — `sw.fetch()` context manager and `sw.guarded()` exception wrapper ([ADR-8](./contracts/decisions.md), API: [interfaces.md B.5–B.6](./contracts/interfaces.md)) — so fake-200s become retry triggers at the decision point; the background analyzer thread with the bounded queue and never-raise guarantee ([ARCHITECTURE.md §7](./ARCHITECTURE.md)).
 
-**Done when:** a third-party scraper changes exactly one line (client construction) and verdicts start appearing in logs; killing the analyzer thread mid-run leaves the scraper unaffected.
+**Done when:** a third-party scraper changes exactly one line (client construction) and verdicts start appearing in logs; killing the analyzer thread mid-run leaves the scraper unaffected; a fake-200 challenge page raises `SwBlocked` in guarded mode and is retriable via a standard retry decorator.
 
 ## 4. Phase 3 — Validation and drift (~1 week, 4–6 ed)
 

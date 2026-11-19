@@ -2,7 +2,7 @@
 
 Open-source observability for web scrapers: catches challenge pages behind fake 200s, schema drift, and silent data failures. Works with Scrapy, Playwright, Firecrawl, Crawl4AI, and browser agents.
 
-> **Status:** design phase — the [documentation](./docs/README.md) describes the target v0.1; implementation has not started yet. Nothing is installable yet (`pip install scrapewatch` arrives with the 0.1 release).
+> **Status:** in development — the [documentation](./docs/README.md) describes the target v0.1, the client layer is being implemented. Not yet installable (`pip install scrapewatch` arrives with the 0.1 release).
 
 ```python
 import scrapewatch as sw
@@ -10,6 +10,16 @@ import scrapewatch as sw
 session = sw.watch(requests.Session(), job="ebay-prices")
 # ...scrape as usual — scrapewatch quietly classifies every response
 # and tells you when the data stops being real
+```
+
+Verdicts can also be consumed at the decision point, so your scraper can react — rotate a proxy, retry, skip:
+
+```python
+session = sw.guarded(requests.Session(), job="ebay-prices")
+
+@retry(retry=retry_if_exception_type(sw.SwBlocked))   # tenacity
+def get(url):
+    return session.get(url)   # a challenge page raises SwBlocked — even behind a fake 200
 ```
 
 ## Why

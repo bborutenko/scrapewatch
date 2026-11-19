@@ -1,7 +1,7 @@
 # Interfaces — Contracts
 
 **Document type:** Contract — the stable public surface
-**Status:** Target state, approved 2026-11-13 — no implementation exists yet
+**Status:** Target state, approved 2026-11-13; reactive mode added 2026-11-15 ([ADR-8](./decisions.md)) — skeleton implementation of the client layer has started
 **Stability rule:** anything in this file is versioned. Breaking changes require a contract version bump and an ADR; they are never silent. CI will validate Events against the JSON Schema derived from Part A ([ADR-4](./decisions.md)).
 
 Three parts: **A** — the data contract (`Event` / `Verdict`) that every subsystem, every future SDK, and the future server all speak; **B** — the public Python API for v0.1; **C** — the YAML rule format for detectors.
@@ -39,12 +39,12 @@ The engine's judgment about one Event.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `status` | `enum` | yes | One of `ok`, `blocked`, `garbage`, `drifted` (definitions: [CONCEPTS.md](../CONCEPTS.md)). |
+| `status` | `enum` | yes | One of `ok`, `blocked`, `garbage`, `drifted`, `unknown` — `unknown` means Scrapewatch's own analysis failed and the event is unclassified (degradation, never an error; [ADR-8](./decisions.md)). Definitions: [CONCEPTS.md](../CONCEPTS.md). |
 | `detector_id` | `str \| None` | yes | Rule that fired (`"cloudflare-challenge"`), `"schema"` for item validation, or `None` for `ok`. |
 | `reason` | `str` | yes | Human-readable one-liner, e.g. `"Cloudflare interstitial behind HTTP 200"`. |
-| `confidence` | `float` | yes | 0.0–1.0; derived from how many signatures matched. |
+| `confidence` | `float` | yes | 0.0–1.0; derived from how many signatures matched; `1.0` for `ok` verdicts (no signatures involved). |
 | `evidence` | `dict` | yes | Machine-readable match details: matched signature texts, offending item fields. |
-| `event_hash` | `str` | yes | Hash of the source Event for correlation in storage. |
+| `event_hash` | `str` | yes | SHA-256 of the source Event's canonical JSON (`to_dict()`, sorted keys, compact separators) for correlation in storage. |
 
 Aggregation rule when several detectors fire on one Event: highest `severity` wins; ties broken by verdict precedence `blocked > garbage > drifted > ok`.
 
@@ -58,7 +58,7 @@ Aggregation rule when several detectors fire on one Event: highest `severity` wi
 
 ## Part B — Public Python API (v0.1)
 
-Three entry points, mirroring the integration levels in [ARCHITECTURE.md §5](../ARCHITECTURE.md):
+Entry points come in two families ([ADR-8](./decisions.md)): **passive** (B.1–B.4 — observe with zero code change, verdicts delivered asynchronously) and **reactive** (B.5–B.6 — verdict delivered synchronously at the decision point, so the scraper can act on it):
 
 ### B.1 `watch()` — wrap a client
 
@@ -111,6 +111,39 @@ schema = sw.Schema({
 ```
 
 Supported checks in v0.1: `type` (`str`, `int`, `float`, `bool`), `required`, `range` (numeric), `min_length`/`max_length` (strings), `enum`. Semantics (fill rate, drift) are defined in [components/data-quality.md](../components/data-quality.md).
+
+### B.5 `fetch()` — reactive request context
+
+```python
+with sw.fetch(session.get, url, job="ebay-prices") as r:
+    if r.verdict.status == "blocked":
+        rotate_proxy()
+        r.retry()
+    elif r.verdict.status == "garbage":
+        skip(url)
+    else:
+        r.items(extract(r.response))    # schema validation + recorded history
+```
+
+- `sw.fetch(fn, *args, job=..., **kwargs)` — `fn` is the client's request method (`session.get`, `client.get`, …); the first attempt executes inside the context.
+- The context object exposes `.response`, `.verdict` (computed synchronously before the block body runs), `.retry()` (re-execute `fn`) and `.items(rows)`.
+- `verdict.status == "unknown"` means Scrapewatch itself failed to classify — treat as unclassified, never as an error ([ADR-8](./decisions.md)).
+- The event is recorded like any passive one: reacting now does not lose history.
+
+### B.6 `guarded()` — verdict-as-exception
+
+```python
+session = sw.guarded(requests.Session(), job="ebay-prices")
+
+@retry(retry=retry_if_exception_type(sw.SwBlocked), stop=stop_after_attempt(3))
+def get_listing(url):
+    return session.get(url)   # raises sw.SwBlocked on challenge pages — including fake-200s
+```
+
+- Wraps a client exactly like `watch()` (verdicts still recorded), but `blocked` verdicts raise `sw.SwBlocked` and `garbage` verdicts raise `sw.SwGarbage`.
+- Designed for retry libraries (tenacity et al.): a fake-200 becomes a first-class retry trigger with one line.
+- Exceptions carry the `Verdict`; the response is available as `exc.response`.
+- Strictly opt-in: the default `watch()` never raises ([ADR-6](./decisions.md)).
 
 ---
 
