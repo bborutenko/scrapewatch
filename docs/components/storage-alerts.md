@@ -21,7 +21,7 @@ Storage turns the stream of Verdicts and job aggregates into an answerable histo
 Three tables, one file (default `./scrapewatch.db`, configurable via `watch(..., db=...)`):
 
 ```sql
-runs     (id TEXT PK, job TEXT, started_at TEXT, ended_at TEXT, events INTEGER, dropped_events INTEGER, analyzer_errors INTEGER)
+runs     (id TEXT PK, job TEXT, started_at TEXT, ended_at TEXT, events INTEGER, analyzer_errors INTEGER)
 events   (id INTEGER PK, run_id TEXT, captured_at TEXT, url TEXT, event_json TEXT, verdict_json TEXT)
 aggregates (job TEXT, key TEXT, value_json TEXT, updated_at TEXT, PRIMARY KEY (job, key))
 ```
@@ -29,7 +29,7 @@ aggregates (job TEXT, key TEXT, value_json TEXT, updated_at TEXT, PRIMARY KEY (j
 Design notes:
 
 - `event_json` / `verdict_json` store the contract shapes verbatim ([ADR-4](../contracts/decisions.md)) — the database is queryable by the same schema every future SDK speaks; no relational translation layer to drift.
-- Self-diagnostic counters live on `runs` ([ADR-6](../contracts/decisions.md)): `dropped_events` and `analyzer_errors` are first-class data, surfaced by `report`.
+- Self-diagnostic counter lives on `runs` ([ADR-6](../contracts/decisions.md)): `analyzer_errors` is first-class data, surfaced by `report`.
 - Writes happen on the analyzer thread only; batched (default every 50 events or 10 s, whichever first). A failed write degrades to in-memory operation and increments `analyzer_errors` — it never stops analysis.
 - Retention: default 14 days of `events` rows; `aggregates` and `runs` kept indefinitely (tiny). Configurable; purge runs opportunistically after batch writes.
 
@@ -63,7 +63,7 @@ job ebay-prices          state: drifted (since 2026-11-13 14:02)
   page freshness   last ok response: 4 m ago
   fill rate        price: 61% ▼▼   title: 100%
   drift            field_emptiness fired 13:58 (price < 80%)
-  self-diag        dropped_events: 0  analyzer_errors: 0
+  self-diag        analyzer_errors: 0
 ```
 
 The two freshness numbers side by side are the product's headline answer ([data-quality.md §6](./data-quality.md)): real pages + stale data = broken extraction; stale both = blocked pipeline.
