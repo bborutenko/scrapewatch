@@ -117,26 +117,32 @@ class AsyncAnalyzer:
 
     def __init__(
         self,
-        engine: Engine | None = None,
+        engine: Engine,
         sink: Callable[[Event, Verdict], None] | None = None,
         queue_limit: int = DEFAULT_QUEUE_LIMIT,
     ) -> None:
         self._engine = engine
         self._sink = sink
-        self._queue: queue.Queue[tuple[Event, Engine | None] | None] = queue.Queue(maxsize=queue_limit)
+        self._queue: queue.Queue[tuple[Event, Engine] | None] = queue.Queue(maxsize=queue_limit)
         self._thread: threading.Thread | None = None
         self._lock = threading.Lock()
         self.analyzer_errors = 0
         self.processed_events = 0
 
+
     def submit(self, event: Event, engine: Engine | None = None) -> None:
         """Add event to queue. Blocks if queue is full (backpressure)."""
+        if engine is None:
+            engine = self._engine
+
         self._ensure_thread()
         self._queue.put((event, engine))
+
 
     def flush(self) -> None:
         """Wait until all queued events are processed."""
         self._queue.join()
+
 
     def stop(self) -> None:
         """Stop the background thread."""
@@ -146,28 +152,34 @@ class AsyncAnalyzer:
             self._thread.join(timeout=5)
             self._thread = None
 
+
     def _ensure_thread(self) -> None:
         """Start the worker thread if not running."""
         if self._thread is not None:
             return
+        
         with self._lock:
             if self._thread is None:
                 self._thread = threading.Thread(target=self._run, name="scrapewatch-analyzer", daemon=True)
                 self._thread.start()
 
+
     def _run(self) -> None:
         """Worker thread main loop."""
-        if self._engine is None:
-            self._engine = Engine()
         while True:
             item = self._queue.get()
             try:
                 if item is None:
                     return
-                event, engine = item
-                verdict = (engine or self._engine).observe(event)
+                
+                event: Event = item[0]
+                engine: Engine = item[1]
+
+                verdict = engine.observe(event)
+
                 if self._sink:
                     self._sink(event, verdict)
+
                 self.processed_events += 1
             except Exception:
                 self.analyzer_errors += 1

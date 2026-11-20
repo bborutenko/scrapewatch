@@ -25,11 +25,11 @@ from ..core.rules import load_rules
 _default_analyzer: AsyncAnalyzer | None = None
 
 
-def _get_default_analyzer() ->AsyncAnalyzer:
+def _get_default_analyzer() -> AsyncAnalyzer:
     """Get or create the process-wide default analyzer."""
     global _default_analyzer
     if _default_analyzer is None:
-        _default_analyzer = AsyncAnalyzer()
+        _default_analyzer = AsyncAnalyzer(engine=Engine())
     return _default_analyzer
 
 
