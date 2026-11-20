@@ -17,10 +17,20 @@ from typing import Any
 
 import requests
 
-from ..core.analyzer import AsyncAnalyzer, build_event, get_analyzer
+from ..core.analyzer import AsyncAnalyzer, build_event
 from ..core.engine import Engine
 from ..core.event import JobRef
 from ..core.rules import load_rules
+
+_default_analyzer: AsyncAnalyzer | None = None
+
+
+def _get_default_analyzer() ->AsyncAnalyzer:
+    """Get or create the process-wide default analyzer."""
+    global _default_analyzer
+    if _default_analyzer is None:
+        _default_analyzer = AsyncAnalyzer()
+    return _default_analyzer
 
 
 class WatchedSession(requests.Session):
@@ -32,11 +42,9 @@ class WatchedSession(requests.Session):
     def __init__(self, *, job: str, engine: Engine | None = None) -> None:
         super().__init__()
         self._scrapewatch_job = job
-        #: one run per wrap(); the contract requires run_id to be explicit (A.1)
         self._scrapewatch_jobref = JobRef(name=job, run_id=uuid.uuid4().hex)
         self._scrapewatch_seen = 0
-        self._scrapewatch_analyzer = get_analyzer()
-        #: None → the analyzer's shared packaged-rules engine; set by watch(rules=[...])
+        self._scrapewatch_analyzer = _get_default_analyzer()
         self._scrapewatch_engine = engine
 
     def request(self, *args: Any, **kwargs: Any) -> requests.Response:

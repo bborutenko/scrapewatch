@@ -3,7 +3,7 @@
 import pytest
 import requests
 
-from scrapewatch.core.analyzer import get_analyzer
+from scrapewatch.core.analyzer import AsyncAnalyzer
 from scrapewatch.interceptors.requests_interceptor import wrap
 
 
@@ -48,21 +48,21 @@ def test_capture_does_not_touch_the_user_visible_response(local_server):
 
 
 def test_fake_200_challenge_is_processed(local_server):
-    analyzer = get_analyzer()
     watched = wrap(requests.Session(), job="ebay-prices")
+    analyzer = watched._scrapewatch_analyzer
 
     before = analyzer.processed_events
     response = watched.get(f"{local_server}/challenge")
     analyzer.flush()
 
-    assert response.status_code == 200  # the user sees a "successful" response
+    assert response.status_code == 200
     assert analyzer.processed_events == before + 1
     assert analyzer.analyzer_errors == 0
 
 
 def test_healthy_traffic_is_processed(local_server):
-    analyzer = get_analyzer()
     watched = wrap(requests.Session(), job="ebay-prices")
+    analyzer = watched._scrapewatch_analyzer
     before = analyzer.processed_events
 
     watched.get(local_server)
@@ -73,8 +73,8 @@ def test_healthy_traffic_is_processed(local_server):
 
 
 def test_transport_failure_becomes_an_event_and_reraises(local_server):
-    analyzer = get_analyzer()
     watched = wrap(requests.Session(), job="ebay-prices")
+    analyzer = watched._scrapewatch_analyzer
     before = analyzer.processed_events
 
     with pytest.raises(requests.exceptions.ConnectionError):
@@ -85,11 +85,10 @@ def test_transport_failure_becomes_an_event_and_reraises(local_server):
 
 
 def test_killing_the_analyzer_leaves_the_scraper_unaffected(local_server):
-    # roadmap Phase 2 gate: the analyzer dies mid-run, requests keep working
-    analyzer = get_analyzer()
     watched = wrap(requests.Session(), job="ebay-prices")
+    analyzer = watched._scrapewatch_analyzer
 
-    analyzer.stop()  # worker thread is gone; the queue just accumulates
+    analyzer.stop()
 
     response = watched.get(local_server)
 
@@ -97,5 +96,5 @@ def test_killing_the_analyzer_leaves_the_scraper_unaffected(local_server):
     assert response.text == "<html>prices</html>"
     assert watched._scrapewatch_seen == 1
 
-    analyzer._ensure_thread()  # revive the singleton for later tests
+    analyzer._ensure_thread()
     analyzer.flush()

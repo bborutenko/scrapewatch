@@ -1,7 +1,7 @@
-"""Analyzers: synchronous and asynchronous (queue+thread) verdict processing.
+"""Analyzers: synchronous and asynchronous verdict processing.
 
-SyncAnalyzer  — runs engine.observe() inline, blocks caller (for reactive mode, tests).
-AsyncAnalyzer — bounded queue + daemon thread, blocks on full queue (backpressure).
+SyncAnalyzer  — runs engine.observe() inline (for tests, reactive mode).
+AsyncAnalyzer — queue + background thread (for passive watch()).
 """
 
 import hashlib
@@ -13,7 +13,7 @@ from typing import Any, Callable, Protocol
 
 from .engine import Engine
 from .event import BODY_SAMPLE_LIMIT, Event, JobRef
-from .verdict import Status, Verdict
+from .verdict import Verdict
 
 __all__ = [
     "AnalyzerProtocol",
@@ -22,7 +22,6 @@ __all__ = [
     "build_event",
     "BODY_SIZE_CAP",
     "DEFAULT_QUEUE_LIMIT",
-    "get_analyzer",
 ]
 
 BODY_SIZE_CAP = 10 * 1024 * 1024
@@ -30,6 +29,8 @@ DEFAULT_QUEUE_LIMIT = 10_000
 
 
 class AnalyzerProtocol(Protocol):
+    """Common interface for analyzers."""
+
     def submit(self, event: Event, engine: Engine | None = None) -> None: ...
     def flush(self) -> None: ...
     def stop(self) -> None: ...
@@ -46,6 +47,8 @@ def build_event(
     latency_ms: float | None = None,
     meta: dict[str, Any] | None = None,
 ) -> Event:
+    """Build an Event from raw HTTP response data."""
+
     lowered = {str(key).lower(): str(value) for key, value in (headers or {}).items()}
 
     content_type = lowered.get("content-type")
@@ -76,6 +79,8 @@ def build_event(
 
 
 class SyncAnalyzer:
+    """Runs engine.observe() inline on the caller's thread."""
+
     def __init__(
         self,
         engine: Engine | None = None,
@@ -87,24 +92,29 @@ class SyncAnalyzer:
         self.analyzer_errors = 0
 
     def submit(self, event: Event, engine: Engine | None = None) -> None:
+        """Process event synchronously."""
         try:
-            verdict = (engine or self._engine or Engine()).observe(event)
+            actual_engine = engine or self._engine or Engine()
+            verdict = actual_engine.observe(event)
             if self._sink:
                 self._sink(event, verdict)
             self.processed_events += 1
         except Exception:
             self.analyzer_errors += 1
             # TODO: log when logging system is ready
-            # logger.warning("scrapewatch sync analyzer failed", exc_info=True)
 
     def flush(self) -> None:
+        """No-op for sync analyzer."""
         pass
 
     def stop(self) -> None:
+        """No-op for sync analyzer."""
         pass
 
 
 class AsyncAnalyzer:
+    """Queue + background thread for async event processing."""
+
     def __init__(
         self,
         engine: Engine | None = None,
@@ -112,22 +122,24 @@ class AsyncAnalyzer:
         queue_limit: int = DEFAULT_QUEUE_LIMIT,
     ) -> None:
         self._engine = engine
-        self._sink: Callable[[Event, Verdict], None] | None = sink
+        self._sink = sink
         self._queue: queue.Queue[tuple[Event, Engine | None] | None] = queue.Queue(maxsize=queue_limit)
         self._thread: threading.Thread | None = None
         self._lock = threading.Lock()
-
         self.analyzer_errors = 0
         self.processed_events = 0
 
     def submit(self, event: Event, engine: Engine | None = None) -> None:
+        """Add event to queue. Blocks if queue is full (backpressure)."""
         self._ensure_thread()
-        self._queue.put((event, engine)) 
+        self._queue.put((event, engine))
 
     def flush(self) -> None:
+        """Wait until all queued events are processed."""
         self._queue.join()
 
     def stop(self) -> None:
+        """Stop the background thread."""
         self._ensure_thread()
         self._queue.put(None)
         if self._thread is not None:
@@ -135,16 +147,16 @@ class AsyncAnalyzer:
             self._thread = None
 
     def _ensure_thread(self) -> None:
+        """Start the worker thread if not running."""
         if self._thread is not None:
             return
         with self._lock:
             if self._thread is None:
-                self._thread = threading.Thread(
-                    target=self._run, name="scrapewatch-analyzer", daemon=True
-                )
+                self._thread = threading.Thread(target=self._run, name="scrapewatch-analyzer", daemon=True)
                 self._thread.start()
 
     def _run(self) -> None:
+        """Worker thread main loop."""
         if self._engine is None:
             self._engine = Engine()
         while True:
@@ -160,19 +172,5 @@ class AsyncAnalyzer:
             except Exception:
                 self.analyzer_errors += 1
                 # TODO: log when logging system is ready
-                # logger.warning("scrapewatch analyzer failed on an event", exc_info=True)
             finally:
                 self._queue.task_done()
-
-
-_default_analyzer: AsyncAnalyzer | None = None
-_default_lock = threading.Lock()
-
-
-def get_analyzer() -> AsyncAnalyzer:
-    global _default_analyzer
-    if _default_analyzer is None:
-        with _default_lock:
-            if _default_analyzer is None:
-                _default_analyzer = AsyncAnalyzer()
-    return _default_analyzer
