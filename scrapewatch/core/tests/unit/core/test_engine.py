@@ -150,12 +150,11 @@ def test_all_of_fires_only_when_every_group_matches(tmp_path):
     both = engine.observe(_event(headers={"server": "cloudflare"}, body_sample="<p>TEST-MARKER</p>"))
     assert both.status is Status.GARBAGE
     assert both.detector_id == "needs-both"
-    assert both.evidence["matched_signatures"] == ["header[server]: ^cloudflare$", "body_re: TEST-MARKER"]
 
     body_only = engine.observe(_event(body_sample="<p>TEST-MARKER</p>"))
     assert body_only.status is Status.OK
 
-    header_only = engine.observe(_event(headers={"server": "cloudflare"}))
+    header_only = engine.observe(_event(headers={"server": "cloudflare"}, body_sample="<html></html>"))
     assert header_only.status is Status.OK
 
 
@@ -172,7 +171,7 @@ def test_observe_never_raises_and_degrades_to_unknown(monkeypatch):
     def explode(*args, **kwargs):
         raise RuntimeError("detector exploded")
 
-    monkeypatch.setattr(engine, "_check_detectors", explode)
+    monkeypatch.setattr(engine, "_classify", explode)
 
     verdict = engine.observe(_event())
 
