@@ -7,16 +7,15 @@ docs/components/core-engine.md §4.
 
 Failure policy: ``observe`` never raises into user code — any failure of
 scrapewatch itself degrades to ``Verdict.unknown`` with the reason
-recorded, counted in ``Engine.failures`` and logged at WARNING
-(ARCHITECTURE §7, ADR-8). Broken *rules* are a different story: they
-die loudly at load time (rules.py, C.3.5) and never reach this module.
+recorded, counted in ``Engine.failures`` (ARCHITECTURE §7, ADR-8).
+Broken *rules* are a different story: they die loudly at load time
+(rules.py, C.3.5) and never reach this module.
 """
 
 import dataclasses
 import hashlib
 import html
 import json
-import logging
 import re
 from collections.abc import Callable, Iterable
 
@@ -25,8 +24,6 @@ from .rules import CompiledGroup, CompiledPrimitive, CompiledRule, load_rules
 from .verdict import Severity, Status, Verdict, aggregate
 
 __all__ = ["Engine"]
-
-logger = logging.getLogger("scrapewatch.core.engine")
 
 #: <title> extraction: a regex slice, not a DOM tree — body_sample is
 #: capped at 64 KiB by the contract, and malformed HTML must still
@@ -107,10 +104,10 @@ class Engine:
             return self._classify(event, event_hash)
         except Exception as exc:  # the never-raise boundary (ADR-6, ARCHITECTURE §7.2)
             self.failures += 1
-            logger.warning("scrapewatch could not classify %s: %r", event.url, exc)
+            # TODO: log when logging system is ready
+            # logger.warning("scrapewatch could not classify %s: %r", event.url, exc)
             return Verdict.unknown(reason=f"analysis failed: {exc!r}", event_hash=event_hash)
 
-    # --- pipeline (core-engine.md §4) -------------------------------------
 
     def _classify(self, event: Event, event_hash: str) -> Verdict:
         hints = self._extract_hints(event)
@@ -204,13 +201,11 @@ class Engine:
             if (text := _PRIMITIVE_MATCHERS[primitive.kind](primitive, event, hints)) is not None
         ]
 
-    # --- helpers ------------------------------------------------------------
-
     @staticmethod
     def _reason(rule: CompiledRule, event: Event) -> str:
         """Human one-liner (A.2); the fake-200 gets the phrasing it deserves."""
         if event.status_code == 200:
-            return f"{rule.name} behind HTTP 200"  # the failure mode the library exists for
+            return f"{rule.name} behind HTTP 200"
         if event.status_code is None:
             return f"{rule.name} (no response received)"
         return f"{rule.name} (HTTP {event.status_code})"

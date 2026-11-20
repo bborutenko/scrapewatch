@@ -166,7 +166,7 @@ def test_engine_without_rules_always_says_ok():
 # --- failure policy (ADR-6, ADR-8) -------------------------------------------
 
 
-def test_observe_never_raises_and_degrades_to_unknown(monkeypatch, caplog):
+def test_observe_never_raises_and_degrades_to_unknown(monkeypatch):
     engine = Engine()
 
     def explode(*args, **kwargs):
@@ -174,13 +174,11 @@ def test_observe_never_raises_and_degrades_to_unknown(monkeypatch, caplog):
 
     monkeypatch.setattr(engine, "_check_detectors", explode)
 
-    with caplog.at_level("WARNING", logger="scrapewatch.core.engine"):
-        verdict = engine.observe(_event())
+    verdict = engine.observe(_event())
 
     assert verdict.status is Status.UNKNOWN
     assert "detector exploded" in verdict.reason
     assert engine.failures == 1
-    assert "could not classify" in caplog.text
 
 
 def test_a_clean_run_keeps_the_failure_counter_at_zero():

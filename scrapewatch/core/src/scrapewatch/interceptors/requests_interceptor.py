@@ -5,12 +5,11 @@ it is never imported unless the caller already holds a ``requests.Session``,
 which proves the library is installed (ADR-5).
 
 Capture is fire-and-forget (ADR-6): building the Event takes microseconds,
-analysis runs on the shared background analyzer (interceptors/base.py), and
-no scrapewatch error ever propagates into the request path. Zero business
-logic here — the interceptor only assembles and hands over (§1).
+analysis runs on the shared background analyzer, and no scrapewatch error
+ever propagates into the request path. Zero business logic here — the
+interceptor only assembles and hands over.
 """
 
-import logging
 import time
 import uuid
 from collections.abc import Sequence
@@ -18,12 +17,10 @@ from typing import Any
 
 import requests
 
+from ..core.analyzer import AsyncAnalyzer, build_event, get_analyzer
 from ..core.engine import Engine
 from ..core.event import JobRef
 from ..core.rules import load_rules
-from .base import build_event, get_analyzer
-
-logger = logging.getLogger("scrapewatch.interceptors.requests")
 
 
 class WatchedSession(requests.Session):
@@ -75,7 +72,9 @@ class WatchedSession(requests.Session):
             )
             self._scrapewatch_analyzer.submit(event, self._scrapewatch_engine)
         except Exception:
-            logger.warning("scrapewatch: response capture failed; the request is unaffected", exc_info=True)
+            # TODO: log when logging system is ready
+            # logger.warning("scrapewatch: response capture failed; the request is unaffected", exc_info=True)
+            pass
 
     def _scrapewatch_capture_failure(
         self, exc: Exception, args: tuple[Any, ...], kwargs: dict[str, Any], started: float
@@ -94,7 +93,9 @@ class WatchedSession(requests.Session):
             self._scrapewatch_seen += 1
             self._scrapewatch_analyzer.submit(event, self._scrapewatch_engine)
         except Exception:
-            logger.warning("scrapewatch: failure capture failed; the exception is re-raised untouched", exc_info=True)
+            # TODO: log when logging system is ready
+            # logger.warning("scrapewatch: failure capture failed; the exception is re-raised untouched", exc_info=True)
+            pass
 
     @staticmethod
     def _scrapewatch_body(response: requests.Response) -> bytes | None:

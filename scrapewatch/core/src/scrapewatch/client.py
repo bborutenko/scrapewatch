@@ -6,7 +6,6 @@ for type checkers only; runtime dispatch matches on the client's class
 module and qualname, which needs no imports at all.
 """
 
-import logging
 import typing
 from collections.abc import Sequence
 
@@ -19,8 +18,6 @@ if typing.TYPE_CHECKING:
     from playwright.async_api import BrowserContext as AsyncBrowserContext
     from playwright.sync_api import Browser as SyncBrowser
     from playwright.sync_api import BrowserContext as SyncBrowserContext
-
-logger = logging.getLogger("scrapewatch.client")
 
 __all__ = [
     "ClientSpec",
@@ -95,7 +92,8 @@ def watch[C: WatchableClient](client: C, *, job: str, rules: Sequence[str] | Non
     # double-wrap protection (interceptors.md §3): one wrap, one job —
     # an already-watched client comes back unchanged, with a warning
     if getattr(client, "_scrapewatch_wrapped", False):
-        logger.warning("watch(): client is already watched; returning it unchanged")
+        # TODO: log when logging system is ready
+        # logger.warning("watch(): client is already watched; returning it unchanged")
         return client
 
     kind = client_kind(client)

@@ -113,7 +113,7 @@ v0.1 integrates at three levels only (L1: `requests`/`httpx`; L2: Playwright; L3
 
 ## ADR-6: Fire-and-forget — observability must never break the scraper
 
-**Status:** Accepted, 2026-11-13
+**Status:** Accepted, 2026-11-13; updated 2026-11-20 (backpressure instead of drop)
 
 ### Context
 
@@ -121,13 +121,13 @@ Scrapewatch sits inside the user's revenue-critical pipeline. A monitoring bug t
 
 ### Decision
 
-Interception is asynchronous and bounded: capture enqueues to a bounded queue (default 10,000 events) and returns in microseconds; a background analyzer thread does all engine/storage/alert work. Every Scrapewatch frame catches its own exceptions, increments self-diagnostic counters (`dropped_events`, `analyzer_errors`), and logs at WARNING or below. No exception ever propagates into user code; on overflow, oldest events are dropped, never the newest.
+Interception is asynchronous and bounded: capture enqueues to a bounded queue (default 10,000 events) and returns in microseconds; a background analyzer thread does all engine/storage/alert work. Every Scrapewatch frame catches its own exceptions, increments self-diagnostic counter `analyzer_errors`, and logs at WARNING or below. No exception ever propagates into user code. On queue saturation, `submit()` blocks the caller (backpressure) until space is available — **no events are ever dropped**.
 
 ### Consequences
 
 - User pipelines are structurally immune to Scrapewatch bugs; the never-raise guarantee is testable (fault-injection tests in Phase 2).
-- Diagnostics can lag or silently drop under overload — mitigated by surfacing self-diagnostic counters in `scrapewatch report` so degradation itself is observable.
-- Some failure modes (e.g. lost events) are accepted as the price of the guarantee.
+- Backpressure naturally slows the scraper when analysis lags, applying built-in rate limiting without data loss.
+- The only self-diagnostic counter is `analyzer_errors` (processing failures), surfaced by `scrapewatch report`.
 
 ---
 

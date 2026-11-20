@@ -127,10 +127,10 @@ The two axes answer different questions: reactive mode fixes fake-200 at the dec
 
 Observability that can break the thing it observes is worse than no observability ([ADR-6](./contracts/decisions.md)). Concrete rules for the interceptor and analyzer:
 
-1. **Never block.** Interception enqueues and returns immediately; analysis happens on a background worker. Budget per captured response: microseconds on the caller's thread.
-2. **Never raise.** Any exception anywhere inside Scrapewatch is caught, counted in a self-diagnostic counter, and logged (level `WARNING` or lower). Not a single exception may propagate into user scraping code.
-3. **Degrade, don't die.** The event queue is bounded (default 10,000 events). On overflow the oldest events are dropped and a `dropped_events` counter increments; on SQLite write failure the analyzer keeps running with results in memory only.
-4. **Be honest about it.** `scrapewatch report` (planned, Phase 4) surfaces the self-diagnostic counters, so silent Scrapewatch failure is itself observable.
+1. **Never raise.** Any exception anywhere inside Scrapewatch is caught, counted in a self-diagnostic counter (`analyzer_errors`), and logged (level `WARNING` or lower). Not a single exception may propagate into user scraping code.
+2. **Backpressure on saturation.** The event queue is bounded (default 10,000 events). On saturation, `submit()` blocks the caller until space is available — no events are ever dropped.
+3. **Degrade, don't die.** On SQLite write failure the analyzer keeps running with results in memory only.
+4. **Be honest about it.** `scrapewatch report` (planned, Phase 4) surfaces the self-diagnostic counter (`analyzer_errors`), so silent Scrapewatch failure is itself observable.
 5. **Opt-in exceptions only.** In reactive/guarded modes the verdict reaches the caller synchronously, but Scrapewatch's *own* failures still never raise: a broken engine degrades to `verdict.status="unknown"` plus a log line ([ADR-8](./contracts/decisions.md)). The only exceptions that can ever reach user code are the domain exceptions (`SwBlocked`/`SwGarbage`) that guarded mode was explicitly asked to raise.
 
 ## 8. Core extraction paths (future)

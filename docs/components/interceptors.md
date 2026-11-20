@@ -60,7 +60,7 @@ response arrives
                                           alerts.dispatch(...)
 ```
 
-- Bounded `queue.Queue` (default 10,000). Overflow drops the **oldest** events and increments `dropped_events` (see [ADR-6](../contracts/decisions.md)).
+- Bounded `queue.Queue` (default 10,000). On saturation, `submit()` blocks the caller (backpressure) until space is available — no events are dropped (see [ADR-6](../contracts/decisions.md)).
 - The analyzer is a daemon thread started lazily on first `watch()`/`job()`; process exit never waits on it.
 - Every analyzer iteration is wrapped in a catch-all: exceptions increment `analyzer_errors`, log at WARNING, and processing continues with the next event.
 - Async users (`httpx.AsyncClient`, async Playwright): the queue and analyzer remain synchronous/threaded — `asyncio` code just enqueues from the event loop without `await`.

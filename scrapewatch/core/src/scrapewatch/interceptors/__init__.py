@@ -28,11 +28,14 @@ def wrap_client(kind: str, client: Any, *, job: str, rules: Sequence[str] | None
             f"the {kind} interceptor arrives with the v0.1 interceptors milestone; "
             "requests is wired today"
         )
-    
+
     module_name = _IMPLEMENTED.get(kind)
-    
+
     if module_name is None:
         raise TypeError(f"unknown client kind {kind!r}")
-    
+
     module = importlib.import_module(f".{module_name}", __package__)
     return module.wrap(client, job=job, rules=rules)
+
+
+__all__ = ["wrap_client"]
