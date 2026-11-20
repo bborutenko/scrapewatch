@@ -94,7 +94,7 @@ class SyncAnalyzer:
     def submit(self, event: Event, engine: Engine | None = None) -> None:
         """Process event synchronously."""
         try:
-            actual_engine = engine or self._engine or Engine()
+            actual_engine = engine or self._engine
             verdict = actual_engine.observe(event)
             if self._sink:
                 self._sink(event, verdict)

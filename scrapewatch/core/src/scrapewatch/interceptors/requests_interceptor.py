@@ -29,7 +29,7 @@ def _get_default_analyzer() -> AsyncAnalyzer:
     """Get or create the process-wide default analyzer."""
     global _default_analyzer
     if _default_analyzer is None:
-        _default_analyzer = AsyncAnalyzer(engine=Engine())
+        _default_analyzer = AsyncAnalyzer(engine=Engine(rules=load_rules()))
     return _default_analyzer
 
 

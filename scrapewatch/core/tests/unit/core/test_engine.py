@@ -7,7 +7,7 @@ import pytest
 
 from scrapewatch.core.engine import Engine
 from scrapewatch.core.event import Event, JobRef
-from scrapewatch.core.rules import load_rule_file
+from scrapewatch.core.rules import load_rule_file, load_rules
 from scrapewatch.core.verdict import Status
 
 FAKE_200 = (
@@ -43,7 +43,7 @@ def _engine(tmp_path, yaml_text, name="rule.yaml") -> Engine:
 
 
 def test_healthy_page_is_ok():
-    verdict = Engine().observe(_event())
+    verdict = Engine(load_rules()).observe(_event())
 
     assert verdict.status is Status.OK
     assert verdict.detector_id is None
@@ -51,7 +51,7 @@ def test_healthy_page_is_ok():
 
 
 def test_challenge_page_behind_http_200_is_blocked_not_ok():
-    verdict = Engine().observe(_event(body_sample=FAKE_200, status_code=200))
+    verdict = Engine(load_rules()).observe(_event(body_sample=FAKE_200, status_code=200))
 
     assert verdict.status is Status.BLOCKED
     assert verdict.detector_id == "cloudflare-challenge"
@@ -61,7 +61,7 @@ def test_challenge_page_behind_http_200_is_blocked_not_ok():
 def test_confidence_follows_the_c34_formula(tmp_path):
     # one fired group, one matched primitive: 0.5 + 0.5*1 = 1.0,
     # status 200 disagrees with the hint [403, 429, 503]: -0.1
-    verdict = Engine().observe(_event(body_sample=FAKE_200, status_code=200))
+    verdict = Engine(load_rules()).observe(_event(body_sample=FAKE_200, status_code=200))
 
     assert verdict.confidence == pytest.approx(0.9)
     assert verdict.evidence["matched_primitives"] == 1
@@ -70,16 +70,16 @@ def test_confidence_follows_the_c34_formula(tmp_path):
 
 
 def test_status_hint_agreement_caps_confidence_at_one():
-    verdict = Engine().observe(_event(body_sample=FAKE_200, status_code=403))
+    verdict = Engine(load_rules()).observe(_event(body_sample=FAKE_200, status_code=403))
 
     assert verdict.confidence == 1.0  # 1.0 + 0.1, capped (C.3.4)
 
 
 def test_reason_names_the_http_status_when_not_200():
-    verdict = Engine().observe(_event(body_sample=FAKE_200, status_code=403))
+    verdict = Engine(load_rules()).observe(_event(body_sample=FAKE_200, status_code=403))
     assert verdict.reason.endswith("(HTTP 403)")
 
-    no_response = Engine().observe(_event(body_sample=FAKE_200, status_code=None))
+    no_response = Engine(load_rules()).observe(_event(body_sample=FAKE_200, status_code=None))
     assert "no response received" in no_response.reason
 
 
@@ -88,7 +88,7 @@ def test_reason_names_the_http_status_when_not_200():
 
 def test_event_hash_is_the_canonical_fingerprint():
     event = _event()
-    verdict = Engine().observe(event)
+    verdict = Engine(load_rules()).observe(event)
 
     canonical = json.dumps(event.to_dict(), sort_keys=True, separators=(",", ":"), default=str)
     assert verdict.event_hash == hashlib.sha256(canonical.encode()).hexdigest()
@@ -96,7 +96,7 @@ def test_event_hash_is_the_canonical_fingerprint():
 
 def test_same_event_hashes_the_same_across_verdicts():
     event = _event(body_sample=FAKE_200)
-    engine = Engine()
+    engine = Engine(load_rules())
 
     assert engine.observe(event).event_hash == engine.observe(event).event_hash
     assert engine.observe(event).event_hash != engine.observe(_event(url="https://other.example.com")).event_hash
@@ -166,7 +166,7 @@ def test_engine_without_rules_always_says_ok():
 
 
 def test_observe_never_raises_and_degrades_to_unknown(monkeypatch):
-    engine = Engine()
+    engine = Engine(load_rules())
 
     def explode(*args, **kwargs):
         raise RuntimeError("detector exploded")
@@ -181,6 +181,6 @@ def test_observe_never_raises_and_degrades_to_unknown(monkeypatch):
 
 
 def test_a_clean_run_keeps_the_failure_counter_at_zero():
-    engine = Engine()
+    engine = Engine(load_rules())
     engine.observe(_event(body_sample=FAKE_200))
     assert engine.failures == 0

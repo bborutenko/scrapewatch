@@ -13,16 +13,14 @@ import re
 from collections.abc import Iterable
 
 from .event import Event
-from .rules import CompiledGroup, CompiledPrimitive, CompiledRule, load_rules
+from .rules import CompiledGroup, CompiledRule
 from .verdict import Severity, Verdict, aggregate
 
 __all__ = ["Engine"]
 
-# Regex patterns for extracting hints from HTML
 _TITLE_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
 _SCRIPT_SRC_RE = re.compile(r"""<script[^>]+\bsrc\s*=\s*["']([^"']*)["']""", re.IGNORECASE)
 
-# Matcher functions for each primitive type
 _MATCHERS = {
     "title_re": lambda p, e, h: next((r.pattern for r in p.patterns if h.title and r.search(h.title)), None),
     "body_re": lambda p, e, h: next((r.pattern for r in p.patterns if e.body_sample and r.search(e.body_sample)), None),
@@ -36,32 +34,25 @@ _MATCHERS = {
 
 
 class Engine:
-    """Evaluates detector rules against Events.
+    """Evaluates detector rules against Events."""
 
-    Usage:
-        engine = Engine()
-        verdict = engine.observe(event)
-    """
-
-    def __init__(self, rules: Iterable[CompiledRule] | None = None) -> None:
-        self._rules = tuple(rules) if rules is not None else load_rules()
+    def __init__(self, rules: Iterable[CompiledRule]) -> None:
+        self._rules = tuple(rules)
         self.failures = 0
 
     def observe(self, event: Event) -> Verdict:
-        """Classify an Event. Never raises — returns Verdict.unknown() on failure."""
+        """Classify an Event. Never raises."""
         event_hash = self._fingerprint(event)
         try:
             return self._classify(event, event_hash)
         except Exception as exc:
             self.failures += 1
-            # TODO: log when logging system is ready
             return Verdict.unknown(reason=f"analysis failed: {exc!r}", event_hash=event_hash)
 
     def _classify(self, event: Event, event_hash: str) -> Verdict:
         """Run all detectors and return the winning verdict."""
         hints = self._extract_hints(event)
         candidates = []
-
         for rule in self._rules:
             result = self._match_rule(rule, event, hints, event_hash)
             if result is not None:
@@ -74,18 +65,16 @@ class Engine:
     def _match_rule(
         self, rule: CompiledRule, event: Event, hints, event_hash: str
     ) -> tuple[Severity, Verdict] | None:
-        """Check if a rule matches the event. Returns (severity, verdict) or None."""
+        """Check if a rule matches the event."""
         fired_groups = []
         any_fired = False
 
-        # Check any_of groups
         for group in rule.match.any_of:
             hits = self._match_group(group, event, hints)
             if hits:
                 any_fired = True
                 fired_groups.append((group, hits))
 
-        # Check all_of groups
         all_satisfied = bool(rule.match.all_of)
         for group in rule.match.all_of:
             hits = self._match_group(group, event, hints)
@@ -102,31 +91,25 @@ class Engine:
         return rule.severity, self._build_verdict(rule, event, event_hash, fired_groups, matched, total)
 
     def _match_group(self, group: CompiledGroup, event: Event, hints) -> list:
-        """Match all primitives in a group, return list of (primitive, matched_text)."""
-        results = []
-        for primitive in group:
-            matcher = _MATCHERS[primitive.kind]
-            text = matcher(primitive, event, hints)
-            if text is not None:
-                results.append((primitive, text))
-        return results
+        """Match all primitives in a group."""
+        return [
+            (primitive, text)
+            for primitive in group
+            if (text := _MATCHERS[primitive.kind](primitive, event, hints)) is not None
+        ]
 
     def _build_verdict(self, rule, event, event_hash, fired_groups, matched, total) -> Verdict:
         """Build a verdict from matched rule."""
-        # Calculate confidence (C.3.4)
         confidence = 0.5 + 0.5 * (matched / total)
         if rule.match.status_hint:
             confidence += 0.1 if event.status_code in rule.match.status_hint else -0.1
         confidence = min(1.0, max(0.0, confidence))
 
-        # Build signatures list for evidence
-        signatures = []
-        for _, hits in fired_groups:
-            for primitive, text in hits:
-                if primitive.header_name:
-                    signatures.append(f"{primitive.kind}[{primitive.header_name}]: {text}")
-                else:
-                    signatures.append(f"{primitive.kind}: {text}")
+        signatures = [
+            f"{primitive.kind}[{primitive.header_name}]: {text}" if primitive.header_name else f"{primitive.kind}: {text}"
+            for group, hits in fired_groups
+            for primitive, text in hits
+        ]
 
         return Verdict(
             status=rule.verdict,

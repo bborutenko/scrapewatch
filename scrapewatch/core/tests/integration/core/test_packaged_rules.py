@@ -22,7 +22,7 @@ def test_challenge_page_from_the_contract_example_is_blocked():
         ),
     )
 
-    verdict = Engine().observe(event)
+    verdict = Engine(rules=load_rules()).observe(event)
 
     assert verdict.status is Status.BLOCKED
     assert verdict.detector_id == "cloudflare-challenge"
@@ -47,4 +47,4 @@ def test_a_real_page_with_a_turnstile_widget_stays_ok():
 
     rules = {rule.id for rule in load_rules()}
     assert "cloudflare-challenge" in rules
-    assert Engine().observe(event).status is Status.OK
+    assert Engine(rules=load_rules()).observe(event).status is Status.OK

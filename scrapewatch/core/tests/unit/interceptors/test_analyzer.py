@@ -12,6 +12,7 @@ from scrapewatch.core.analyzer import (
 )
 from scrapewatch.core.engine import Engine
 from scrapewatch.core.event import JobRef
+from scrapewatch.core.rules import load_rules
 from scrapewatch.core.verdict import Status
 
 
@@ -118,7 +119,7 @@ def test_async_analyzer_verdicts_off_caller_thread():
 
 def test_async_analyzer_default_engine_is_packaged_ruleset():
     sink = _Collector()
-    analyzer = AsyncAnalyzer(engine=Engine(), sink=sink)
+    analyzer = AsyncAnalyzer(engine=Engine(rules=load_rules()), sink=sink)
     challenge = build_event(
         url="https://x.example.com",
         job=_jobref(),
