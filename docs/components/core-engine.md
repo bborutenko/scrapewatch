@@ -8,7 +8,7 @@
 
 The core engine is the entire classification business logic of Scrapewatch: it turns an `Event` into a `Verdict` by evaluating YAML detector rules, and nothing else. It is the module the [pure-core boundary](../ARCHITECTURE.md) ([ADR-2](../contracts/decisions.md)) protects: no I/O, no threads, no framework imports, stdlib-only (a YAML parser is the single allowed dependency — vendored or `PyYAML`).
 
-## 2. Planned layout
+## 2. Current layout
 
 | Path | Responsibility |
 |---|---|
@@ -16,7 +16,10 @@ The core engine is the entire classification business logic of Scrapewatch: it t
 | `scrapewatch/core/verdict.py` | `Verdict` dataclass + aggregation rule (highest severity, precedence `blocked > garbage > drifted > ok`) |
 | `scrapewatch/core/rules.py` | Rule loading and compilation: YAML files → compiled detector set |
 | `scrapewatch/core/engine.py` | `Engine.observe(event: Event) -> Verdict` — the one public entry point |
-| `rules/*.yaml` | Canonical detector rules (data, packaged with the wheel). Interim: shipped as `scrapewatch/rules/` inside the package while the skeleton is nested; moves to the repo root with the Phase 0 flatten |
+| `scrapewatch/core/analyzer.py` | `SyncAnalyzer`, `AsyncAnalyzer`, `build_event` — Event assembly and background processing |
+| `scrapewatch/config/settings.py` | `Settings`, `AnalyzerSettings`, `StorageSettings`, `configure()` — centralized configuration |
+| `scrapewatch/config/logging.py` | `get_logger()`, `setup_logging()` — scrapewatch logging with unique format |
+| `scrapewatch/rules/*.yaml` | Packaged detector rules (data, packaged with the wheel) |
 
 ## 3. Rule loading
 

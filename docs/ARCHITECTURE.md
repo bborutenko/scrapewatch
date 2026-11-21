@@ -18,30 +18,30 @@ Positioning constraints that shape everything below:
 
 These constraints are strategic: they make Scrapewatch complementary to every scraping stack (requests, httpx, Scrapy, Playwright, Firecrawl, Crawl4AI, browser agents) rather than a competitor to any of them.
 
-## 2. Package shape (planned)
+## 2. Package shape (current implementation)
 
 ```text
 scrapewatch/               ← repository root
-├── scrapewatch/           ← the Python package
-│   ├── core/              ← pure engine: event.py, verdict.py, engine.py, rules.py
-│   ├── interceptors/      ← requests.py, httpx.py, playwright.py
-│   ├── storage/           ← sqlite.py, alerts.py
-│   └── cli.py             ← `scrapewatch check` / `scrapewatch report`
-├── rules/                 ← canonical YAML detector rules (packaged with the wheel)
-├── tests/
-│   ├── fixtures/          ← saved challenge-page snapshots, per detector id
-│   └── ...
+├── scrapewatch/core/      ← nested uv project during development
+│   ├── src/scrapewatch/   ← the Python package
+│   │   ├── core/          ← pure engine: event.py, verdict.py, engine.py, rules.py, analyzer.py
+│   │   ├── config/        ← configuration: logging.py, settings.py
+│   │   ├── interceptors/  ← requests_interceptor.py (httpx/playwright planned)
+│   │   ├── storage/       ← sqlite.py, models.py (alerts planned)
+│   │   ├── rules/         ← packaged YAML detector rules
+│   │   └── client.py      ← watch() dispatch
+│   └── tests/             ← fixtures, unit/integration tests
 ├── docs/                  ← this documentation
-├── examples/              ← runnable examples: requests, httpx, Playwright, Scrapy
 └── pyproject.toml
 ```
 
 | Part | Path | Purity | Depends on |
 |---|---|---|---|
 | Core engine | `scrapewatch/core/` | pure — no I/O, no threads, no framework imports | nothing (stdlib only) |
-| Interceptors | `scrapewatch/interceptors/` | impure by definition (wraps user transports) | `core` |
-| Storage & alerts | `scrapewatch/storage/` | impure (SQLite, network for webhooks) | `core` |
-| Rules | `rules/*.yaml` | data, not code | interpreted by `core` |
+| Config | `scrapewatch/config/` | pure — settings and logging | nothing (stdlib only) |
+| Interceptors | `scrapewatch/interceptors/` | impure by definition (wraps user transports) | `core`, `config` |
+| Storage & alerts | `scrapewatch/storage/` | impure (SQLite, network for webhooks) | `core`, `config` |
+| Rules | `scrapewatch/rules/*.yaml` | data, not code | interpreted by `core` |
 
 ## 3. The core boundary
 

@@ -68,15 +68,30 @@ import scrapewatch as sw
 # requests
 session = sw.watch(requests.Session(), job="ebay-prices")
 
-# httpx (sync and async)
+# httpx (sync and async) — planned Phase 2
 client = sw.watch(httpx.Client(), job="ebay-prices")
 aclient = sw.watch(httpx.AsyncClient(), job="ebay-prices")
 
-# Playwright
+# Playwright — planned Phase 2
 browser = sw.watch(playwright.chromium.launch(), job="agent-crawler")
 ```
 
-Optional arguments: `schema=` (see B.4), `rules=[path, ...]` (extra rule files), `db="scrapewatch.db"` (SQLite location), `alerts=[sw.TelegramAlert(...), sw.WebhookAlert(url)]`.
+Optional arguments: `schema=` (see B.4), `rules=[path, ...]` (extra rule files).
+
+Configuration is handled via `sw.configure()`:
+
+```python
+# Configure before watch()
+sw.configure(
+    db_path="scrapewatch.db",      # SQLite database path
+    queue_limit=10_000,            # Max events in queue
+    shutdown_timeout=10.0,         # Graceful shutdown timeout
+    batch_size=50,                 # Storage batch size
+)
+
+# Settings apply globally to all watch() calls
+session = sw.watch(requests.Session(), job="ebay-prices")
+```
 
 Returns the same object, wrapped: everything the scraper did before keeps working identically.
 

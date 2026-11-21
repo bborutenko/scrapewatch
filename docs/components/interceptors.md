@@ -8,16 +8,21 @@
 
 Interceptors are the only part of Scrapewatch that touches user transport objects. Each one wraps a specific client, captures every response that passes through it, converts it into an `Event`, and enqueues it for the background analyzer. They contain **zero** business logic — a rule of equal rank with the pure-core boundary: if an interceptor ever needs to "check" something, the check belongs in the core.
 
-## 2. Planned layout
+## 2. Current layout
 
 | Path | Wraps | Mechanism |
 |---|---|---|
-| `scrapewatch/interceptors/requests.py` | `requests.Session` | subclass wrapping `request()`/`send()` — captures the final `Response` |
+| `scrapewatch/interceptors/requests_interceptor.py` | `requests.Session` | subclass wrapping `request()`/`send()` — captures the final `Response` |
+| `scrapewatch/core/analyzer.py` | — | shared: Event assembly (`build_event`), SyncAnalyzer, AsyncAnalyzer with bounded queue, never-raise wrapper |
+
+**Planned (Phase 2):**
+
+| Path | Wraps | Mechanism |
+|---|---|---|
 | `scrapewatch/interceptors/httpx.py` | `httpx.Client` / `httpx.AsyncClient` | native `event_hooks={"response": [...]}`; async variant enqueues without awaiting |
 | `scrapewatch/interceptors/playwright.py` | Playwright `Browser` / `BrowserContext` | wraps context creation; `page.on("response")` + navigation listeners |
 | `scrapewatch/interceptors/fetch.py` | any request callable | reactive context: run `fn`, compute the verdict synchronously, expose `.response`/`.verdict`/`.retry()` ([ADR-8](../contracts/decisions.md)) |
 | `scrapewatch/interceptors/guarded.py` | `requests`/`httpx`/Playwright clients | like `watch()`, but raises `SwBlocked`/`SwGarbage` on bad verdicts (opt-in, [ADR-8](../contracts/decisions.md)) |
-| `scrapewatch/interceptors/base.py` | — | shared: Event assembly, queue, never-raise wrapper |
 
 All third-party imports are lazy: installing `scrapewatch` without `requests`/`httpx`/`playwright` must remain clean; the extra is only imported when `watch()` meets that type ([ADR-5](../contracts/decisions.md)).
 
