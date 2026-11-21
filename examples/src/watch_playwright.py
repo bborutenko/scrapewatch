@@ -8,6 +8,11 @@ import scrapewatch as sw
 
 
 def sync_example():
+    sw.configure(
+        db_path="data/scrapewatch.db",
+        rules_dir="rules/",
+    )
+    
     with sync_playwright() as p:
         browser = p.chromium.launch()
         context = sw.watch(browser.new_context(), job="example-pw-sync")
@@ -22,6 +27,11 @@ def sync_example():
 
 async def async_example():
     from playwright.async_api import async_playwright
+    
+    sw.configure(
+        db_path="data/scrapewatch.db",
+        rules_dir="rules/",
+    )
     
     async with async_playwright() as p:
         browser = await p.chromium.launch()

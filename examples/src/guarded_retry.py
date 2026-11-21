@@ -18,6 +18,11 @@ def fetch_with_retry(session, url):
 
 
 def main():
+    sw.configure(
+        db_path="data/scrapewatch.db",
+        rules_dir="rules/",
+    )
+    
     session = sw.guarded(requests.Session(), job="example-retry")
 
     try:

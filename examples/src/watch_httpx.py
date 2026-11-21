@@ -8,6 +8,11 @@ import scrapewatch as sw
 
 
 def sync_example():
+    sw.configure(
+        db_path="data/scrapewatch.db",
+        rules_dir="rules/",
+    )
+    
     client = sw.watch(httpx.Client(), job="example-httpx-sync")
     
     response = client.get("https://httpbin.org/html")
@@ -15,6 +20,11 @@ def sync_example():
 
 
 async def async_example():
+    sw.configure(
+        db_path="data/scrapewatch.db",
+        rules_dir="rules/",
+    )
+    
     client = sw.watch(httpx.AsyncClient(), job="example-httpx-async")
     
     async with client:

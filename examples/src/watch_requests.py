@@ -9,6 +9,12 @@ import scrapewatch as sw
 
 
 def main():
+    # Configure scrapewatch at startup
+    sw.configure(
+        db_path="data/scrapewatch.db",
+        rules_dir="rules/",
+    )
+    
     session = sw.watch(requests.Session(), job="example-watch")
 
     response = session.get("https://httpbin.org/html")

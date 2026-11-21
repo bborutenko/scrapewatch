@@ -12,6 +12,11 @@ def rotate_proxy():
 
 
 def main():
+    sw.configure(
+        db_path="data/scrapewatch.db",
+        rules_dir="rules/",
+    )
+    
     session = requests.Session()
 
     with sw.fetch(session.get, "https://httpbin.org/html", job="example-fetch") as ctx:
