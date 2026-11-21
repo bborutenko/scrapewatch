@@ -20,6 +20,8 @@ dev = ["httpx>=0.27", "pytest>=8.4", "requests>=2.34.2"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--import-mode=importlib"
+# NOTE: Run tests with `uv run python -m pytest` not `uv run pytest`
+# The `-m` flag ensures the correct Python module path resolution
 
 [build-system]
 requires = ["uv_build>=0.13.8,<0.14.0"]

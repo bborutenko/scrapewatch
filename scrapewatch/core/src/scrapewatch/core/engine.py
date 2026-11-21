@@ -101,6 +101,7 @@ class Engine:
     def _build_verdict(self, rule, event, event_hash, fired_groups, matched, total) -> Verdict:
         """Build a verdict from matched rule."""
         confidence = 0.5 + 0.5 * (matched / total)
+        
         if rule.match.status_hint:
             confidence += 0.1 if event.status_code in rule.match.status_hint else -0.1
         confidence = min(1.0, max(0.0, confidence))

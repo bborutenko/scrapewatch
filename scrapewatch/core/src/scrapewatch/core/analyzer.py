@@ -4,6 +4,7 @@ SyncAnalyzer  — runs engine.observe() inline (for tests, reactive mode).
 AsyncAnalyzer — queue + background thread (for passive watch()).
 """
 
+import atexit
 import hashlib
 import queue
 import threading
@@ -120,18 +121,25 @@ class AsyncAnalyzer:
         engine: Engine,
         sink: Callable[[Event, Verdict], None] | None = None,
         queue_limit: int = DEFAULT_QUEUE_LIMIT,
+        shutdown_timeout: float = 10.0,
     ) -> None:
         self._engine = engine
         self._sink = sink
         self._queue: queue.Queue[tuple[Event, Engine] | None] = queue.Queue(maxsize=queue_limit)
         self._thread: threading.Thread | None = None
         self._lock = threading.Lock()
+        self._stopping = False
+        self._shutdown_timeout = shutdown_timeout
         self.analyzer_errors = 0
         self.processed_events = 0
+        atexit.register(self._graceful_shutdown)
 
 
     def submit(self, event: Event, engine: Engine | None = None) -> None:
         """Add event to queue. Blocks if queue is full (backpressure)."""
+        if self._stopping:
+            return
+
         if engine is None:
             engine = self._engine
 
@@ -145,12 +153,24 @@ class AsyncAnalyzer:
 
 
     def stop(self) -> None:
-        """Stop the background thread."""
+        """Stop the background thread and wait for queue to drain."""
+        self._stopping = True
         self._ensure_thread()
         self._queue.put(None)
+        
         if self._thread is not None:
-            self._thread.join(timeout=5)
+            self._thread.join(timeout=self._shutdown_timeout)
+            remaining = self._queue.qsize()
+            if remaining > 0:
+                # TODO: log warning when logging system is ready
+                pass
             self._thread = None
+
+
+    def _graceful_shutdown(self) -> None:
+        """Called by atexit on process termination."""
+        if self._thread is not None:
+            self.stop()
 
 
     def _ensure_thread(self) -> None:
