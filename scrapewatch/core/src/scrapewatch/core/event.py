@@ -13,10 +13,6 @@ from typing import Any
 #: Event contract version; bumps only incompatibly, with an ADR (A.3).
 SCHEMA_VERSION = 1
 
-#: ``body_sample`` never exceeds this; the interceptor's event builder
-#: (interceptors/base.py) enforces the truncation, not this module.
-BODY_SAMPLE_LIMIT = 64 * 1024
-
 
 @dataclasses.dataclass(frozen=True, slots=True, kw_only=True)
 class JobRef:

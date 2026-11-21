@@ -5,7 +5,6 @@ import dataclasses
 import pytest
 
 from scrapewatch.core.event import (
-    BODY_SAMPLE_LIMIT,
     SCHEMA_VERSION,
     Event,
     JobRef,

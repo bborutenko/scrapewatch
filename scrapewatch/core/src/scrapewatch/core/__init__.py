@@ -6,7 +6,7 @@ framework imports. The one entry point is ``Engine.observe``.
 """
 
 from .engine import Engine, EngineProtocol
-from .event import BODY_SAMPLE_LIMIT, SCHEMA_VERSION, Event, JobRef
+from .event import SCHEMA_VERSION, Event, JobRef
 from .rules import (
     CompiledGroup,
     CompiledMatch,
@@ -20,7 +20,6 @@ from .rules import (
 from .verdict import PRECEDENCE, Severity, Status, Verdict, aggregate
 
 __all__ = [
-    "BODY_SAMPLE_LIMIT",
     "CompiledGroup",
     "CompiledMatch",
     "CompiledPrimitive",

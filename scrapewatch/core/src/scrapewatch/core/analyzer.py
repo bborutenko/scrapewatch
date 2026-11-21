@@ -12,9 +12,9 @@ from collections.abc import Mapping
 from datetime import datetime, timezone
 from typing import Any, Callable, Protocol
 
-from ..config import get_logger
+from ..config import get_logger, get_settings
 from .engine import Engine
-from .event import BODY_SAMPLE_LIMIT, Event, JobRef
+from .event import Event, JobRef
 from .verdict import Verdict
 
 logger = get_logger()
@@ -24,12 +24,7 @@ __all__ = [
     "SyncAnalyzer",
     "AsyncAnalyzer",
     "build_event",
-    "BODY_SIZE_CAP",
-    "DEFAULT_QUEUE_LIMIT",
 ]
-
-BODY_SIZE_CAP = 10 * 1024 * 1024
-DEFAULT_QUEUE_LIMIT = 10_000
 
 
 class AnalyzerProtocol(Protocol):
@@ -52,6 +47,7 @@ def build_event(
     meta: dict[str, Any] | None = None,
 ) -> Event:
     """Build an Event from raw HTTP response data."""
+    settings = get_settings()
 
     lowered = {str(key).lower(): str(value) for key, value in (headers or {}).items()}
 
@@ -63,7 +59,7 @@ def build_event(
         sample, body_hash, body_length = "", None, None
     else:
         body_length = len(body)
-        sample = "" if body_length > BODY_SIZE_CAP else body[:BODY_SAMPLE_LIMIT].decode("utf-8", errors="replace")
+        sample = "" if body_length > settings.analyzer.body_size_cap else body[:settings.body_sample_limit].decode("utf-8", errors="replace")
         body_hash = hashlib.sha256(body).hexdigest()
 
     return Event(
@@ -123,16 +119,19 @@ class AsyncAnalyzer:
         self,
         engine: Engine,
         sink: Callable[[Event, Verdict], None] | None = None,
-        queue_limit: int = DEFAULT_QUEUE_LIMIT,
-        shutdown_timeout: float = 10.0,
+        queue_limit: int | None = None,
+        shutdown_timeout: float | None = None,
     ) -> None:
+        settings = get_settings()
         self._engine = engine
         self._sink = sink
-        self._queue: queue.Queue[tuple[Event, Engine] | None] = queue.Queue(maxsize=queue_limit)
+        self._queue: queue.Queue[tuple[Event, Engine] | None] = queue.Queue(
+            maxsize=queue_limit if queue_limit is not None else settings.analyzer.queue_limit
+        )
         self._thread: threading.Thread | None = None
         self._lock = threading.Lock()
         self._stopping = False
-        self._shutdown_timeout = shutdown_timeout
+        self._shutdown_timeout = shutdown_timeout if shutdown_timeout is not None else settings.analyzer.shutdown_timeout
         self.analyzer_errors = 0
         self.processed_events = 0
         atexit.register(self._graceful_shutdown)

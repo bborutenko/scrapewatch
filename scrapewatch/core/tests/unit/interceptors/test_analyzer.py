@@ -6,14 +6,13 @@ import time
 from scrapewatch.core.analyzer import (
     AsyncAnalyzer,
     SyncAnalyzer,
-    BODY_SIZE_CAP,
-    BODY_SAMPLE_LIMIT,
     build_event,
 )
 from scrapewatch.core.engine import Engine
 from scrapewatch.core.event import JobRef
 from scrapewatch.core.rules import load_rules
 from scrapewatch.core.verdict import Status
+from scrapewatch import get_settings
 
 
 def _jobref() -> JobRef:
@@ -51,21 +50,32 @@ def test_body_hash_and_length_cover_the_full_body():
 
 
 def test_sample_is_truncated_to_the_contract_limit():
-    body = b"a" * (BODY_SAMPLE_LIMIT + 1024)
+    settings = get_settings()
+    body = b"a" * (settings.body_sample_limit + 1024)
     event = build_event(url="https://x.example.com", job=_jobref(), body=body)
 
-    assert len(event.body_sample) == BODY_SAMPLE_LIMIT
+    assert len(event.body_sample) == settings.body_sample_limit
     assert event.body_length == len(body)
 
 
-def test_oversized_bodies_keep_hash_and_length_but_no_sample(monkeypatch):
+def test_oversized_bodies_keep_hash_and_length_but_no_sample():
     import hashlib
-    monkeypatch.setattr("scrapewatch.core.analyzer.BODY_SIZE_CAP", 10)
+    
+    # Save current setting
+    old_cap = get_settings().analyzer.body_size_cap
+    
+    # Configure small body_size_cap for test
+    from scrapewatch import configure
+    configure(body_size_cap=10)
+    
     event = build_event(url="https://x.example.com", job=_jobref(), body=b"x" * 11)
 
     assert event.body_sample == ""
     assert event.body_hash == hashlib.sha256(b"x" * 11).hexdigest()
     assert event.body_length == 11
+    
+    # Restore original setting
+    configure(body_size_cap=old_cap)
 
 
 def test_missing_body_stays_none_not_an_empty_hash():

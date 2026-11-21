@@ -12,7 +12,7 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from typing import Protocol
 
-from ..config import get_logger
+from ..config import get_logger, get_settings
 from ..core.event import Event
 from ..core.verdict import Verdict
 from .models import Aggregate, Run
@@ -65,17 +65,18 @@ class Storage:
 
     def __init__(
         self,
-        db_path: str = "scrapewatch.db",
-        batch_size: int = 50,
-        flush_interval: float = 10.0,
+        db_path: str | None = None,
+        batch_size: int | None = None,
+        flush_interval: float | None = None,
     ) -> None:
-        self._db_path = db_path
-        self._batch_size = batch_size
-        self._flush_interval = flush_interval
+        settings = get_settings()
+        self._db_path = db_path if db_path is not None else settings.storage.db_path
+        self._batch_size = batch_size if batch_size is not None else settings.storage.batch_size
+        self._flush_interval = flush_interval if flush_interval is not None else settings.storage.flush_interval
         self._batch: list[tuple[str, str, str, str, str]] = []
         self._last_flush = time.time()
 
-        self._db = sqlite3.connect(db_path, check_same_thread=False)
+        self._db = sqlite3.connect(self._db_path, check_same_thread=False)
         self._db.execute("PRAGMA journal_mode=WAL")
         self._init_schema()
 
