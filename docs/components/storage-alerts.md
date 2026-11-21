@@ -74,6 +74,24 @@ The two freshness numbers side by side are the product's headline answer ([data-
 - Alert sinks against a local HTTP server: assert payload shape, debounce window, and that a connection-refused sink leaves the analyzer alive (fault injection per [ADR-6](../contracts/decisions.md)).
 - CLI: golden-output tests for `report` against a seeded database.
 
+### Implemented tests (230 total)
+
+| Category | Tests | Coverage |
+|----------|-------|----------|
+| Schema init | 8 | Table creation, columns, indexes, foreign keys, idempotency |
+| WAL mode | 1 | Concurrent read/write support |
+| Run lifecycle | 3 | Create, update, error handling |
+| Event writes | 9 | Batching, flush triggers, JSON validity, round-trip |
+| Aggregates | 6 | Read/write, update, job isolation |
+| Purge | 4 | Retention, default window, error handling |
+| Error handling | 4 | Never-raise policy (ADR-6) |
+| Thread safety | 1 | Concurrent writes from multiple threads |
+| Protocol compliance | 7 | StorageProtocol method signatures |
+| Contract round-trip | 3 | Event/Verdict survive storage (ADR-4) |
+| Edge cases | 4 | Unicode, empty body, large headers, special chars |
+| Models | 23 | Run, Aggregate dataclasses, immutability |
+| Settings | 11 | Defaults, configure(), reset_settings() |
+
 ## 7. Open questions (Phase 4)
 
 - WAL mode for SQLite (concurrent read during write)? Default yes if no surprises on Windows.

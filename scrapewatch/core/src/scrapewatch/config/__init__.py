@@ -7,6 +7,7 @@ from .settings import (
     StorageSettings,
     configure,
     get_settings,
+    reset_settings,
 )
 
 __all__ = [
@@ -17,4 +18,5 @@ __all__ = [
     "Settings",
     "get_settings",
     "configure",
+    "reset_settings",
 ]
