@@ -14,8 +14,6 @@ def rotate_proxy():
 def main():
     session = requests.Session()
 
-    sw.configure(rules_dir="rules")
-
     with sw.fetch(session.get, "https://httpbin.org/html", job="example-fetch") as ctx:
         print(f"Status: {ctx.response.status_code}")
         print(f"Verdict: {ctx.verdict.status}")
