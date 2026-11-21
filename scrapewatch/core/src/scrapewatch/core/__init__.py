@@ -7,6 +7,7 @@ framework imports. The one entry point is ``Engine.observe``.
 
 from .engine import Engine, EngineProtocol
 from .event import SCHEMA_VERSION, Event, JobRef
+from .exceptions import SwBlocked, SwGarbage
 from .rules import (
     CompiledGroup,
     CompiledMatch,
@@ -33,6 +34,8 @@ __all__ = [
     "SCHEMA_VERSION",
     "Severity",
     "Status",
+    "SwBlocked",
+    "SwGarbage",
     "Verdict",
     "aggregate",
     "load_rule_file",

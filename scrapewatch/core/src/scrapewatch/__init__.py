@@ -1,6 +1,7 @@
 """Scrapewatch — observability for web scrapers."""
 
 from .config import configure, get_settings, setup_logging
+from .core import SwBlocked, SwGarbage
 from .interceptors import SUPPORTED_CLIENTS, WatchableClient, client_kind
 from .protocols import fetch, guarded, watch
 
@@ -13,6 +14,8 @@ __all__ = [
     "watch",
     "guarded",
     "fetch",
+    "SwBlocked",
+    "SwGarbage",
     "configure",
     "get_settings",
 ]
