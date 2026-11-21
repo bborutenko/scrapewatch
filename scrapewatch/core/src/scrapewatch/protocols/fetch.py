@@ -6,10 +6,11 @@ react at the decision point (rotate proxy, retry, skip).
 
 import time
 import uuid
+from collections.abc import Callable
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
-from ..core.analyzer import SyncAnalyzer, build_event
+from ..core.analyzer import build_event
 from ..core.engine import Engine
 from ..core.event import JobRef
 from ..core.verdict import Verdict

@@ -15,12 +15,7 @@ from ..core.event import JobRef
 from ..core.exceptions import SwBlocked, SwGarbage
 from ..core.verdict import Status, Verdict
 from ..interceptors.client import (
-    SUPPORTED_CLIENTS,
     WatchableClient,
-    client_kind,
-    create_async_analyzer,
-    create_engine,
-    wrap_client,
 )
 
 if TYPE_CHECKING:
@@ -71,7 +66,7 @@ class GuardedWrapper:
             started = time.perf_counter()
             try:
                 response = method(*args, **kwargs)
-            except Exception as exc:
+            except Exception:
                 # Transport errors are re-raised, not converted
                 raise
 

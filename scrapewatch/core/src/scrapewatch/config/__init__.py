@@ -3,10 +3,10 @@
 from .logging import get_logger, setup_logging
 from .settings import (
     AnalyzerSettings,
-    StorageSettings,
     Settings,
-    get_settings,
+    StorageSettings,
     configure,
+    get_settings,
 )
 
 __all__ = [

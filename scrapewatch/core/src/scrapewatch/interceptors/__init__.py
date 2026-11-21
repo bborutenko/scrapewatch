@@ -10,8 +10,8 @@ Client wrapping logic lives in client.py (types, detection, creation, dispatch).
 """
 
 from .client import (
-    ClientSpec,
     SUPPORTED_CLIENTS,
+    ClientSpec,
     WatchableClient,
     client_kind,
     create_async_analyzer,

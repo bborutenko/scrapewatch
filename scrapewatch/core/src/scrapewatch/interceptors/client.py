@@ -23,7 +23,6 @@ from ..core.analyzer import AsyncAnalyzer, SyncAnalyzer
 from ..core.engine import Engine
 from ..core.rules import load_rules
 
-
 if typing.TYPE_CHECKING:
     import httpx
     import requests
@@ -32,7 +31,7 @@ if typing.TYPE_CHECKING:
     from playwright.sync_api import Browser as SyncBrowser
     from playwright.sync_api import BrowserContext as SyncBrowserContext
 
-    type WatchableClient = (
+    WatchableClient: typing.TypeAlias = (
         requests.Session
         | httpx.Client
         | httpx.AsyncClient

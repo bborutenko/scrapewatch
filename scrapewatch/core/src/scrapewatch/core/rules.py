@@ -16,7 +16,7 @@ import importlib.resources
 import re
 from collections.abc import Iterator, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeAlias
 
 import yaml
 
@@ -56,7 +56,7 @@ class CompiledPrimitive:
 #: A matcher group: primitives combined per C.3.2. Whether the group
 #: needs ANY or ALL of them depends on the parent list (any_of / all_of)
 #: — that firing logic lives in the engine, not in the data.
-type CompiledGroup = tuple[CompiledPrimitive, ...]
+CompiledGroup: TypeAlias = tuple[CompiledPrimitive, ...]
 
 
 @dataclasses.dataclass(frozen=True, slots=True, kw_only=True)

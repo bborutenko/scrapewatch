@@ -8,9 +8,9 @@ import atexit
 import hashlib
 import queue
 import threading
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import datetime, timezone
-from typing import Any, Callable, Protocol
+from typing import Any, Protocol
 
 from ..config import get_logger, get_settings
 from .engine import Engine

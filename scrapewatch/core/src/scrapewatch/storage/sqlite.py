@@ -8,14 +8,13 @@ import json
 import sqlite3
 import time
 from collections.abc import Iterator
-from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from typing import Protocol
 
 from ..config import get_logger, get_settings
 from ..core.event import Event
 from ..core.verdict import Verdict
-from .models import Aggregate, Run
+from .models import Run
 
 logger = get_logger()
 
