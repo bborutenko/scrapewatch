@@ -11,6 +11,7 @@ import html
 import json
 import re
 from collections.abc import Iterable
+from typing import Protocol
 
 from ..config import get_logger
 from .event import Event
@@ -19,7 +20,18 @@ from .verdict import Severity, Verdict, aggregate
 
 logger = get_logger()
 
-__all__ = ["Engine"]
+__all__ = ["EngineProtocol", "Engine"]
+
+
+class EngineProtocol(Protocol):
+    """Interface for event classification engines."""
+
+    failures: int
+
+    def observe(self, event: Event) -> Verdict:
+        """Classify an Event. Never raises."""
+        ...
+
 
 _TITLE_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
 _SCRIPT_SRC_RE = re.compile(r"""<script[^>]+\bsrc\s*=\s*["']([^"']*)["']""", re.IGNORECASE)

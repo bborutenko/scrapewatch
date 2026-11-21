@@ -10,6 +10,7 @@ import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
+from typing import Protocol
 
 from ..config import get_logger
 from ..core.event import Event
@@ -18,7 +19,35 @@ from .models import Aggregate, Run
 
 logger = get_logger()
 
-__all__ = ["Storage"]
+__all__ = ["StorageProtocol", "Storage"]
+
+
+class StorageProtocol(Protocol):
+    """Interface for scrapewatch storage backends."""
+
+    def write_event(self, event: Event, verdict: Verdict, run_id: str) -> None:
+        """Write an event and its verdict. Never raises."""
+        ...
+
+    def write_run(self, run: Run) -> None:
+        """Write or update a run record. Never raises."""
+        ...
+
+    def write_aggregate(self, job: str, key: str, value: dict) -> None:
+        """Write or update an aggregate. Never raises."""
+        ...
+
+    def read_aggregate(self, job: str, key: str) -> dict | None:
+        """Read an aggregate value, or None if not found."""
+        ...
+
+    def purge_old_events(self, days: int = 14) -> None:
+        """Delete events older than N days. Never raises."""
+        ...
+
+    def close(self) -> None:
+        """Flush pending writes and close connection."""
+        ...
 
 
 class Storage:

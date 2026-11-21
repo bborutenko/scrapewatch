@@ -5,7 +5,7 @@ parser: no network, no disk on the evaluation path, no threads, no
 framework imports. The one entry point is ``Engine.observe``.
 """
 
-from .engine import Engine
+from .engine import Engine, EngineProtocol
 from .event import BODY_SAMPLE_LIMIT, SCHEMA_VERSION, Event, JobRef
 from .rules import (
     CompiledGroup,
@@ -26,6 +26,7 @@ __all__ = [
     "CompiledPrimitive",
     "CompiledRule",
     "Engine",
+    "EngineProtocol",
     "Event",
     "JobRef",
     "PRECEDENCE",
