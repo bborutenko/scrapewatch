@@ -46,10 +46,8 @@ class TestGuarded:
         """guarded() still records events like watch()."""
         session = sw.guarded(requests.Session(), job="test")
 
-        # Make a healthy request
         session.get(local_server)
 
-        # The underlying watched client should have seen it
         assert session._client._scrapewatch_seen >= 1
 
 
@@ -122,10 +120,9 @@ class TestFetch:
 class TestGuardedWithRetry:
     """Tests for guarded() with retry libraries."""
 
-    @pytest.mark.skipif(True, reason="tenacity not in test dependencies")
     def test_guarded_works_with_retry_pattern(self, local_server):
         """guarded() integrates with retry pattern."""
-        from tenacity import retry, retry_if_exception_type, stop_after_attempt
+        from tenacity import RetryError, retry, retry_if_exception_type, stop_after_attempt
 
         session = sw.guarded(requests.Session(), job="test")
 
@@ -140,14 +137,13 @@ class TestGuardedWithRetry:
             response = session.get(url)
             return response
 
-        # This should retry on challenge page
-        with pytest.raises(sw.SwBlocked):
+        # This should retry and then raise RetryError
+        with pytest.raises(RetryError):
             fetch_with_retry(f"{local_server}/challenge")
 
-        # Should have attempted at least twice (initial + retry)
-        assert attempts[0] >= 1
+        # Should have attempted twice (initial + 1 retry)
+        assert attempts[0] == 2
 
-    @pytest.mark.skipif(True, reason="tenacity not in test dependencies")
     def test_guarded_healthy_no_retry(self, local_server):
         """guarded() doesn't trigger retry on healthy response."""
         from tenacity import retry, retry_if_exception_type
