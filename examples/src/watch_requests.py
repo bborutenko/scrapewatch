@@ -13,7 +13,7 @@ def main():
 
     response = session.get("https://httpbin.org/html")
     print(f"Status: {response.status_code}")
-    print(f"Verdict: {session._scrapewatch_last_verdict}")
+    print(f"Content length: {len(response.text)}")
 
 
 if __name__ == "__main__":

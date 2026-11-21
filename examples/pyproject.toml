@@ -1,0 +1,14 @@
+[project]
+name = "examples"
+version = "0.1.0"
+description = "Scrapewatch examples"
+requires-python = ">=3.10"
+dependencies = [
+    "scrapewatch",
+    "requests",
+    "httpx",
+    "tenacity",
+]
+
+[tool.uv.sources]
+scrapewatch = { path = "../scrapewatch/core" }
