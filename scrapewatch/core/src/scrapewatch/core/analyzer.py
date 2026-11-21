@@ -12,9 +12,12 @@ from collections.abc import Mapping
 from datetime import datetime, timezone
 from typing import Any, Callable, Protocol
 
+from ..config import get_logger
 from .engine import Engine
 from .event import BODY_SAMPLE_LIMIT, Event, JobRef
 from .verdict import Verdict
+
+logger = get_logger()
 
 __all__ = [
     "AnalyzerProtocol",
@@ -100,9 +103,9 @@ class SyncAnalyzer:
             if self._sink:
                 self._sink(event, verdict)
             self.processed_events += 1
-        except Exception:
+        except Exception as e:
             self.analyzer_errors += 1
-            # TODO: log when logging system is ready
+            logger.error(f"SyncAnalyzer error processing event: {e!r}")
 
     def flush(self) -> None:
         """No-op for sync analyzer."""
@@ -162,8 +165,9 @@ class AsyncAnalyzer:
             self._thread.join(timeout=self._shutdown_timeout)
             remaining = self._queue.qsize()
             if remaining > 0:
-                # TODO: log warning when logging system is ready
-                pass
+                logger.warning(
+                    f"AsyncAnalyzer shutdown timeout: {remaining} events remain in queue"
+                )
             self._thread = None
 
 
@@ -201,8 +205,8 @@ class AsyncAnalyzer:
                     self._sink(event, verdict)
 
                 self.processed_events += 1
-            except Exception:
+            except Exception as e:
                 self.analyzer_errors += 1
-                # TODO: log when logging system is ready
+                logger.error(f"AsyncAnalyzer worker error: {e!r}")
             finally:
                 self._queue.task_done()

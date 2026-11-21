@@ -11,9 +11,12 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 
+from ..config import get_logger
 from ..core.event import Event
 from ..core.verdict import Verdict
 from .models import Aggregate, Run
+
+logger = get_logger()
 
 __all__ = ["Storage"]
 
@@ -104,9 +107,8 @@ class Storage:
             now = time.time()
             if len(self._batch) >= self._batch_size or now - self._last_flush > self._flush_interval:
                 self._flush()
-        except Exception:
-            # TODO: log when logging system is ready
-            pass
+        except Exception as e:
+            logger.error(f"write_event failed: {e!r}")
 
     def _flush(self) -> None:
         """Write batched events to database."""
@@ -124,9 +126,8 @@ class Storage:
             self._db.commit()
             self._batch.clear()
             self._last_flush = time.time()
-        except Exception:
-            # TODO: log when logging system is ready
-            pass
+        except Exception as e:
+            logger.error(f"flush failed: {e!r}")
 
     def write_run(self, run: Run) -> None:
         """Insert or update a run record."""
@@ -143,9 +144,8 @@ class Storage:
                 (run.id, run.job, run.started_at, run.ended_at, run.events, run.analyzer_errors),
             )
             self._db.commit()
-        except Exception:
-            # TODO: log when logging system is ready
-            pass
+        except Exception as e:
+            logger.error(f"write_run failed: {e!r}")
 
     def write_aggregate(self, job: str, key: str, value: dict) -> None:
         """Insert or update an aggregate."""
@@ -162,9 +162,8 @@ class Storage:
                 (job, key, json.dumps(value, separators=(",", ":")), now),
             )
             self._db.commit()
-        except Exception:
-            # TODO: log when logging system is ready
-            pass
+        except Exception as e:
+            logger.error(f"write_aggregate failed: {e!r}")
 
     def read_aggregate(self, job: str, key: str) -> dict | None:
         """Read an aggregate value, or None if not found."""
@@ -187,9 +186,8 @@ class Storage:
                 (cutoff.isoformat(),),
             )
             self._db.commit()
-        except Exception:
-            # TODO: log when logging system is ready
-            pass
+        except Exception as e:
+            logger.error(f"purge_old_events failed: {e!r}")
 
     def close(self) -> None:
         """Flush pending writes and close connection."""

@@ -9,7 +9,10 @@ module and qualname, which needs no imports at all.
 import typing
 from collections.abc import Sequence
 
+from .config import get_logger
 from .interceptors import wrap_client
+
+logger = get_logger()
 
 if typing.TYPE_CHECKING:
     import httpx
@@ -92,8 +95,7 @@ def watch[C: WatchableClient](client: C, *, job: str, rules: Sequence[str] | Non
     # double-wrap protection (interceptors.md §3): one wrap, one job —
     # an already-watched client comes back unchanged, with a warning
     if getattr(client, "_scrapewatch_wrapped", False):
-        # TODO: log when logging system is ready
-        # logger.warning("watch(): client is already watched; returning it unchanged")
+        logger.warning("watch(): client already wrapped, returning unchanged")
         return client
 
     kind = client_kind(client)

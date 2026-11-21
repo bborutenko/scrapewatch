@@ -17,10 +17,13 @@ from typing import Any
 
 import requests
 
+from ..config import get_logger
 from ..core.analyzer import AsyncAnalyzer, build_event
 from ..core.engine import Engine
 from ..core.event import JobRef
 from ..core.rules import load_rules
+
+logger = get_logger()
 
 _default_analyzer: AsyncAnalyzer | None = None
 
@@ -80,9 +83,7 @@ class WatchedSession(requests.Session):
             )
             self._scrapewatch_analyzer.submit(event, self._scrapewatch_engine)
         except Exception:
-            # TODO: log when logging system is ready
-            # logger.warning("scrapewatch: response capture failed; the request is unaffected", exc_info=True)
-            pass
+            logger.warning("response capture failed, request unaffected", exc_info=True)
 
     def _scrapewatch_capture_failure(
         self, exc: Exception, args: tuple[Any, ...], kwargs: dict[str, Any], started: float
@@ -101,9 +102,7 @@ class WatchedSession(requests.Session):
             self._scrapewatch_seen += 1
             self._scrapewatch_analyzer.submit(event, self._scrapewatch_engine)
         except Exception:
-            # TODO: log when logging system is ready
-            # logger.warning("scrapewatch: failure capture failed; the exception is re-raised untouched", exc_info=True)
-            pass
+            logger.warning("failure capture failed, exception re-raised", exc_info=True)
 
     @staticmethod
     def _scrapewatch_body(response: requests.Response) -> bytes | None:

@@ -12,9 +12,12 @@ import json
 import re
 from collections.abc import Iterable
 
+from ..config import get_logger
 from .event import Event
 from .rules import CompiledGroup, CompiledRule
 from .verdict import Severity, Verdict, aggregate
+
+logger = get_logger()
 
 __all__ = ["Engine"]
 
@@ -47,6 +50,7 @@ class Engine:
             return self._classify(event, event_hash)
         except Exception as exc:
             self.failures += 1
+            logger.error(f"Engine.observe failed: {exc!r}")
             return Verdict.unknown(reason=f"analysis failed: {exc!r}", event_hash=event_hash)
 
     def _classify(self, event: Event, event_hash: str) -> Verdict:

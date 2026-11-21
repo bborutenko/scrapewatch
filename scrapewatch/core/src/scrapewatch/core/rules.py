@@ -20,7 +20,10 @@ from typing import Any
 
 import yaml
 
+from ..config import get_logger
 from .verdict import Severity, Status
+
+logger = get_logger()
 
 __all__ = [
     "CompiledMatch",
@@ -111,6 +114,7 @@ def load_rules(extra_paths: Sequence = ()) -> tuple[CompiledRule, ...]:
     for source in (*sources, *(Path(path) for path in extra_paths)):
         for rule in load_rule_file(source):
             by_id[rule.id] = rule
+    logger.info(f"loaded {len(by_id)} rules from {len(list(sources)) + len(extra_paths)} sources")
     return tuple(by_id.values())
 
 
