@@ -12,7 +12,6 @@ interceptor only assembles and hands over.
 
 import time
 import uuid
-from collections.abc import Sequence
 from typing import Any
 
 import requests
@@ -21,19 +20,8 @@ from ..config import get_logger
 from ..core.analyzer import AsyncAnalyzer, build_event
 from ..core.engine import Engine
 from ..core.event import JobRef
-from ..core.rules import load_rules
 
 logger = get_logger()
-
-_default_analyzer: AsyncAnalyzer | None = None
-
-
-def _get_default_analyzer() -> AsyncAnalyzer:
-    """Get or create the process-wide default analyzer."""
-    global _default_analyzer
-    if _default_analyzer is None:
-        _default_analyzer = AsyncAnalyzer(engine=Engine(rules=load_rules()))
-    return _default_analyzer
 
 
 class WatchedSession(requests.Session):
@@ -42,12 +30,18 @@ class WatchedSession(requests.Session):
     #: Double-wrap marker (interceptors.md §3): watch(watch(x)) returns x unchanged.
     _scrapewatch_wrapped = True
 
-    def __init__(self, *, job: str, engine: Engine | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        job: str,
+        analyzer: AsyncAnalyzer,
+        engine: Engine,
+    ) -> None:
         super().__init__()
         self._scrapewatch_job = job
         self._scrapewatch_jobref = JobRef(name=job, run_id=uuid.uuid4().hex)
         self._scrapewatch_seen = 0
-        self._scrapewatch_analyzer = _get_default_analyzer()
+        self._scrapewatch_analyzer = analyzer
         self._scrapewatch_engine = engine
 
     def request(self, *args: Any, **kwargs: Any) -> requests.Response:
@@ -118,16 +112,25 @@ class WatchedSession(requests.Session):
         return response.content
 
 
-def wrap(client: requests.Session, *, job: str, rules: Sequence[str] | None = None) -> WatchedSession:
+def wrap(
+    client: requests.Session,
+    *,
+    job: str,
+    analyzer: AsyncAnalyzer,
+    engine: Engine,
+) -> WatchedSession:
     """Build a ``WatchedSession`` carrying over the caller's session state.
 
-    ``rules`` layers user rule files over the packaged ones (B.1); an
-    invalid rule file raises loudly right here — setup-time failure the
-    user sees immediately (C.3.5), not something discovered mid-scrape.
-    """
-    engine = Engine(load_rules(rules)) if rules else None
+    Args:
+        client: The requests.Session to wrap
+        job: Job name for this wrapped session
+        analyzer: AsyncAnalyzer for background event processing
+        engine: Engine for event classification
 
-    watched = WatchedSession(job=job, engine=engine)
+    Returns:
+        WatchedSession that observes all traffic
+    """
+    watched = WatchedSession(job=job, analyzer=analyzer, engine=engine)
     watched.headers.update(client.headers)
     watched.cookies.update(client.cookies)
     watched.auth = client.auth

@@ -3,12 +3,11 @@
 import pytest
 import requests
 
-from scrapewatch.core.analyzer import AsyncAnalyzer
-from scrapewatch.interceptors.requests_interceptor import wrap
+import scrapewatch as sw
 
 
 def test_real_request_is_observed(local_server):
-    watched = wrap(requests.Session(), job="ebay-prices")
+    watched = sw.watch(requests.Session(), job="ebay-prices")
 
     response = watched.get(local_server)
 
@@ -17,7 +16,7 @@ def test_real_request_is_observed(local_server):
 
 
 def test_redirects_yield_the_final_response_once(local_server):
-    watched = wrap(requests.Session(), job="ebay-prices")
+    watched = sw.watch(requests.Session(), job="ebay-prices")
 
     response = watched.get(f"{local_server}/redirect")
 
@@ -28,7 +27,7 @@ def test_redirects_yield_the_final_response_once(local_server):
 
 
 def test_session_cookies_persist_across_real_requests(local_server):
-    watched = wrap(requests.Session(), job="ebay-prices")
+    watched = sw.watch(requests.Session(), job="ebay-prices")
     watched.get(local_server)
     watched.get(local_server)
 
@@ -39,7 +38,7 @@ def test_session_cookies_persist_across_real_requests(local_server):
 
 
 def test_capture_does_not_touch_the_user_visible_response(local_server):
-    watched = wrap(requests.Session(), job="ebay-prices")
+    watched = sw.watch(requests.Session(), job="ebay-prices")
 
     response = watched.get(local_server)
 
@@ -48,7 +47,7 @@ def test_capture_does_not_touch_the_user_visible_response(local_server):
 
 
 def test_fake_200_challenge_is_processed(local_server):
-    watched = wrap(requests.Session(), job="ebay-prices")
+    watched = sw.watch(requests.Session(), job="ebay-prices")
     analyzer = watched._scrapewatch_analyzer
 
     before = analyzer.processed_events
@@ -61,7 +60,7 @@ def test_fake_200_challenge_is_processed(local_server):
 
 
 def test_healthy_traffic_is_processed(local_server):
-    watched = wrap(requests.Session(), job="ebay-prices")
+    watched = sw.watch(requests.Session(), job="ebay-prices")
     analyzer = watched._scrapewatch_analyzer
     before = analyzer.processed_events
 
@@ -73,7 +72,7 @@ def test_healthy_traffic_is_processed(local_server):
 
 
 def test_transport_failure_becomes_an_event_and_reraises(local_server):
-    watched = wrap(requests.Session(), job="ebay-prices")
+    watched = sw.watch(requests.Session(), job="ebay-prices")
     analyzer = watched._scrapewatch_analyzer
     before = analyzer.processed_events
 
@@ -85,7 +84,7 @@ def test_transport_failure_becomes_an_event_and_reraises(local_server):
 
 
 def test_killing_the_analyzer_leaves_the_scraper_unaffected(local_server):
-    watched = wrap(requests.Session(), job="ebay-prices")
+    watched = sw.watch(requests.Session(), job="ebay-prices")
     analyzer = watched._scrapewatch_analyzer
 
     analyzer.stop()

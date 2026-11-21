@@ -3,7 +3,7 @@
 import requests
 from requests.adapters import HTTPAdapter
 
-from scrapewatch.interceptors.requests_interceptor import wrap
+import scrapewatch as sw
 
 
 class _StaticAdapter(HTTPAdapter):
@@ -26,7 +26,7 @@ def _configured_session() -> requests.Session:
 
 def test_wrap_returns_a_new_equivalent_session():
     original = _configured_session()
-    watched = wrap(original, job="ebay-prices")
+    watched = sw.watch(original, job="ebay-prices")
 
     assert watched is not original
     assert isinstance(watched, requests.Session)
@@ -38,11 +38,11 @@ def test_cookies_survive_the_wrap():
     original = _configured_session()
     original.cookies.set("session-id", "42")
 
-    assert wrap(original, job="ebay-prices").cookies.get("session-id") == "42"
+    assert sw.watch(original, job="ebay-prices").cookies.get("session-id") == "42"
 
 
 def test_every_response_passes_the_capture_hook():
-    watched = wrap(_configured_session(), job="ebay-prices")
+    watched = sw.watch(_configured_session(), job="ebay-prices")
 
     for _ in range(3):
         assert watched.get("https://example.com/prices").status_code == 200
@@ -52,8 +52,8 @@ def test_every_response_passes_the_capture_hook():
 
 def test_each_wrap_gets_its_own_run_id():
     # contract A.1: run_id is explicit, one run per wrap()
-    first = wrap(_configured_session(), job="ebay-prices")
-    second = wrap(_configured_session(), job="ebay-prices")
+    first = sw.watch(_configured_session(), job="ebay-prices")
+    second = sw.watch(_configured_session(), job="ebay-prices")
 
     assert first._scrapewatch_jobref.name == "ebay-prices"
     assert first._scrapewatch_jobref.run_id != second._scrapewatch_jobref.run_id
@@ -68,12 +68,12 @@ def test_invalid_custom_rules_fail_loudly_at_wrap_time(tmp_path):
     broken = tmp_path / "bad.yaml"
     broken.write_text(
         "id: bad\nname: Bad\nverdict: blocked\nseverity: high\n"
-        "match:\n  any_of:\n    - body_re: ['(']\n",
+        "match:\n  any_of:\n    - body_re: ['[']\n",
         encoding="utf-8",
     )
 
     with pytest.raises(RuleLoadError):
-        wrap(_configured_session(), job="ebay-prices", rules=[broken])
+        sw.watch(_configured_session(), job="ebay-prices", rules=[broken])
 
 
 def test_custom_rules_replace_the_engine_per_session(tmp_path):
@@ -84,8 +84,16 @@ def test_custom_rules_replace_the_engine_per_session(tmp_path):
         encoding="utf-8",
     )
 
-    watched = wrap(_configured_session(), job="ebay-prices", rules=[custom])
+    watched = sw.watch(_configured_session(), job="ebay-prices", rules=[custom])
 
     assert watched._scrapewatch_engine is not None
     rule_ids = {rule.id for rule in watched._scrapewatch_engine._rules}
     assert "my-marker" in rule_ids
+
+
+def test_analyzer_and_engine_are_set():
+    """Wrapped session has analyzer and engine set."""
+    watched = sw.watch(_configured_session(), job="ebay-prices")
+
+    assert watched._scrapewatch_analyzer is not None
+    assert watched._scrapewatch_engine is not None
