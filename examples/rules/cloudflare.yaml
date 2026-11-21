@@ -1,0 +1,9 @@
+id: cloudflare-challenge
+name: Cloudflare challenge / interstitial
+verdict: blocked
+severity: high
+match:
+  status_hint: [403, 429, 503]
+  any_of:
+    - title_re: ["Just a moment...", "Attention Required!"]
+    - body_re: ["cdn-cgi/challenge-platform", "cf-browser-verification"]

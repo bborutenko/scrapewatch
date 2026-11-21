@@ -1,4 +1,28 @@
-"""Shared fixtures: a real local HTTP server for integration and e2e tests."""
+CLOUDFLARE_RULE_PATH = None
+
+def pytest_configure(config):
+    import tempfile
+    from pathlib import Path
+    
+    global CLOUDFLARE_RULE_PATH
+    
+    rule_content = """
+id: cloudflare-challenge
+name: Cloudflare challenge / interstitial
+verdict: blocked
+severity: high
+match:
+  status_hint: [403, 429, 503]
+  any_of:
+    - title_re: ["Just a moment..."]
+    - body_re: ["cdn-cgi/challenge-platform", "challenges.cloudflare.com"]
+"""
+    
+    tmpdir = Path(tempfile.gettempdir()) / "scrapewatch-test-rules"
+    tmpdir.mkdir(exist_ok=True)
+    rule_file = tmpdir / "cloudflare.yaml"
+    rule_file.write_text(rule_content)
+    CLOUDFLARE_RULE_PATH = str(rule_file)
 
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -40,6 +64,11 @@ class _PricesHandler(BaseHTTPRequestHandler):
 
     def log_message(self, *args):
         pass  # keep pytest output clean
+
+
+@pytest.fixture()
+def cloudflare_rule_path() -> str:
+    return CLOUDFLARE_RULE_PATH
 
 
 @pytest.fixture()

@@ -127,7 +127,7 @@ def test_async_analyzer_verdicts_off_caller_thread():
     analyzer.stop()
 
 
-def test_async_analyzer_default_engine_is_packaged_ruleset():
+def test_async_analyzer_default_engine_is_empty_ruleset():
     sink = _Collector()
     analyzer = AsyncAnalyzer(engine=Engine(rules=load_rules()), sink=sink)
     challenge = build_event(
@@ -140,7 +140,7 @@ def test_async_analyzer_default_engine_is_packaged_ruleset():
     analyzer.submit(challenge)
     analyzer.flush()
 
-    assert sink.pairs == [("https://x.example.com", Status.BLOCKED)]
+    assert sink.pairs == [("https://x.example.com", Status.OK)]
     analyzer.stop()
 
 

@@ -1,0 +1,8 @@
+id: my-custom-blocked
+name: My site-specific challenge
+verdict: blocked
+severity: high
+match:
+  any_of:
+    - title_re: ["Access Denied"]
+    - body_re: ["bot-detected", "verify-you-are-human"]

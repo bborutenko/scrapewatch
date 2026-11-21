@@ -141,19 +141,20 @@ match:
     assert primitive.header_name == "server"
 
 
-def test_packaged_rules_ship_with_the_package():
-    assert "cloudflare-challenge" in {rule.id for rule in load_rules()}
+def test_load_rules_without_paths_returns_empty():
+    assert load_rules() == ()
 
 
-def test_user_rule_overrides_canonical_by_id(tmp_path):
-    custom = VALID.replace("test-detector", "cloudflare-challenge").replace(
-        "name: Test detector", "name: My tuned Cloudflare"
+def test_user_rule_override_by_id(tmp_path):
+    first = VALID.replace("test-detector", "rule-1")
+    second = VALID.replace("test-detector", "rule-1").replace(
+        "name: Test detector", "name: Override"
     )
-    rules = load_rules([_write(tmp_path, custom)])
+    rules = load_rules([_write(tmp_path, first), _write(tmp_path, second, "second.yaml")])
 
     by_id = {rule.id: rule for rule in rules}
-    assert len(rules) == len(by_id)  # no duplicate ids survive
-    assert by_id["cloudflare-challenge"].name == "My tuned Cloudflare"
+    assert len(rules) == len(by_id)
+    assert by_id["rule-1"].name == "Override"
 
 
 def test_missing_file_is_a_loud_error(tmp_path):

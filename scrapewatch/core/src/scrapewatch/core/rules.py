@@ -1,20 +1,18 @@
 """Rule loading and compilation: YAML detector files -> CompiledRule set.
 
-Format source of truth: docs/contracts/interfaces.md Part C. Loading
-semantics (docs/components/core-engine.md §3): packaged rules first,
-user files after — a user rule overrides a canonical one by ``id``;
-every regex compiles once at load time, and an invalid one aborts
-loading loudly, naming file and pattern (C.3.5): a broken detector
-must never silently disable itself.
+Format source of truth: docs/contracts/interfaces.md Part C.
 
 Detectors are data, not code (ADR-3) — this module is the only place
 that knows the YAML shape; the engine consumes CompiledRule objects.
+
+Rules are optional — if no rules are provided, the engine returns
+ok verdicts for all events. Users can pass custom rule files via
+watch(..., rules=[...]).
 """
 
 import dataclasses
-import importlib.resources
 import re
-from collections.abc import Iterator, Sequence
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, TypeAlias
 
@@ -32,7 +30,6 @@ __all__ = [
     "RuleLoadError",
     "load_rule_file",
     "load_rules",
-    "packaged_rule_files",
 ]
 
 
@@ -89,32 +86,56 @@ _VERDICTS = {"blocked": Status.BLOCKED, "garbage": Status.GARBAGE}  # C.2: only 
 _SEVERITIES = {"low": Severity.LOW, "medium": Severity.MEDIUM, "high": Severity.HIGH}
 
 
-def packaged_rule_files() -> tuple[Any, ...]:
-    """Canonical detector files shipped inside the wheel, sorted by name.
-
-    Interim location: ``scrapewatch/rules/`` next to the code, while the
-    skeleton lives in the nested uv project. ARCHITECTURE §2 puts them at
-    the repo-root ``rules/``; they move there with the Phase 0 flatten,
-    and this function is the only place that knows the location.
-    """
-    directory = importlib.resources.files("scrapewatch").joinpath("rules")
-    files = (path for path in directory.iterdir() if path.name.endswith((".yaml", ".yml")))
-    return tuple(sorted(files, key=lambda path: path.name))
-
-
 def load_rules(extra_paths: Sequence = ()) -> tuple[CompiledRule, ...]:
-    """Packaged rules first, then user files; a later ``id`` overrides an earlier one.
-
-    This override-by-id is the whole v0.1 tuning story (core-engine.md
-    §3.1): users retune canonical detectors for their site/region by
-    passing their own file via ``watch(..., rules=[...])`` — no fork.
+    """Load rules from configured rules_dir and user-provided files.
+    
+    Rules are optional — if no rules are loaded, returns an empty tuple.
+    The engine will return ok verdicts for all events when no rules are loaded.
+    
+    Loads from:
+    1. rules_dir if configured via sw.configure(rules_dir="...")
+    2. extra_paths if provided
+    
+    Args:
+        extra_paths: Optional list of YAML rule file paths
+    
+    Returns:
+        Tuple of compiled rules, deduplicated by id (last wins)
+    
+    Raises:
+        RuleLoadError: If extra_paths contains invalid rule files
     """
+    from ..config import get_settings
+    
     by_id: dict[str, CompiledRule] = {}
-    sources: Iterator[Any] = iter(packaged_rule_files())
-    for source in (*sources, *(Path(path) for path in extra_paths)):
-        for rule in load_rule_file(source):
+    
+    settings = get_settings()
+    
+    # Load from rules_dir if configured (errors are warnings)
+    if settings.rules_dir:
+        rules_path = Path(settings.rules_dir)
+        if rules_path.is_dir():
+            for rule_file in sorted(rules_path.glob("*.yaml")):
+                try:
+                    for rule in load_rule_file(rule_file):
+                        by_id[rule.id] = rule
+                except RuleLoadError as exc:
+                    logger.warning(f"failed to load {rule_file}: {exc}")
+    
+    # Load from extra_paths (errors are raised)
+    for path in extra_paths:
+        for rule in load_rule_file(Path(path)):
             by_id[rule.id] = rule
-    logger.info(f"loaded {len(by_id)} rules from {len(list(sources)) + len(extra_paths)} sources")
+    
+    total_sources = (1 if settings.rules_dir else 0) + len(extra_paths)
+    
+    if not by_id and total_sources > 0:
+        logger.warning("rules provided but none loaded successfully")
+    elif not by_id:
+        logger.warning("no rules loaded — all events will be classified as ok")
+    else:
+        logger.info(f"loaded {len(by_id)} rules from {total_sources} sources")
+    
     return tuple(by_id.values())
 
 

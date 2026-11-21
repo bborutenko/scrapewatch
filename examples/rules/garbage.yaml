@@ -1,0 +1,17 @@
+id: empty-spa-shell
+name: Empty SPA shell (no content)
+verdict: garbage
+severity: medium
+match:
+  any_of:
+    - body_re: ["^\\s*<div\\s+id=[\"']root[\"']></div>\\s*$"]
+---
+
+id: login-wall
+name: Login required page
+verdict: garbage
+severity: medium
+match:
+  any_of:
+    - title_re: ["Log in", "Sign in", "Login Required"]
+    - body_re: ["login-form", "signin-container"]

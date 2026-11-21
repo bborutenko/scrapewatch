@@ -16,7 +16,6 @@ from .rules import (
     RuleLoadError,
     load_rule_file,
     load_rules,
-    packaged_rule_files,
 )
 from .verdict import PRECEDENCE, Severity, Status, Verdict, aggregate
 
@@ -40,5 +39,4 @@ __all__ = [
     "aggregate",
     "load_rule_file",
     "load_rules",
-    "packaged_rule_files",
 ]

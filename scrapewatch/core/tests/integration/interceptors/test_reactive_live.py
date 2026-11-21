@@ -12,9 +12,8 @@ import scrapewatch as sw
 class TestGuarded:
     """Tests for guarded() protocol."""
 
-    def test_guarded_raises_on_challenge_page(self, local_server):
-        """guarded() raises SwBlocked on challenge page."""
-        session = sw.guarded(requests.Session(), job="test")
+    def test_guarded_raises_on_challenge_page(self, local_server, cloudflare_rule_path):
+        session = sw.guarded(requests.Session(), job="test", rules=[cloudflare_rule_path])
 
         with pytest.raises(sw.SwBlocked) as exc_info:
             session.get(f"{local_server}/challenge")
@@ -22,29 +21,26 @@ class TestGuarded:
         assert exc_info.value.verdict is not None
         assert exc_info.value.response is not None
 
-    def test_guarded_passes_healthy_response(self, local_server):
-        """guarded() does not raise on healthy response."""
-        session = sw.guarded(requests.Session(), job="test")
+    def test_guarded_passes_healthy_response(self, local_server, cloudflare_rule_path):
+        session = sw.guarded(requests.Session(), job="test", rules=[cloudflare_rule_path])
 
         response = session.get(local_server)
 
         assert response.status_code == 200
         assert response.text == "<html>prices</html>"
 
-    def test_guarded_preserves_client_state(self, local_server):
-        """guarded() preserves headers and cookies."""
+    def test_guarded_preserves_client_state(self, local_server, cloudflare_rule_path):
         session = requests.Session()
         session.headers["X-Test"] = "value"
         session.cookies.set("session", "abc")
 
-        guarded_session = sw.guarded(session, job="test")
+        guarded_session = sw.guarded(session, job="test", rules=[cloudflare_rule_path])
 
         assert guarded_session._client.headers.get("X-Test") == "value"
         assert guarded_session._client.cookies.get("session") == "abc"
 
-    def test_guarded_still_observes(self, local_server):
-        """guarded() still records events like watch()."""
-        session = sw.guarded(requests.Session(), job="test")
+    def test_guarded_still_observes(self, local_server, cloudflare_rule_path):
+        session = sw.guarded(requests.Session(), job="test", rules=[cloudflare_rule_path])
 
         session.get(local_server)
 
@@ -54,20 +50,18 @@ class TestGuarded:
 class TestFetch:
     """Tests for fetch() protocol."""
 
-    def test_fetch_returns_verdict_synchronously(self, local_server):
-        """fetch() provides verdict in context."""
+    def test_fetch_returns_verdict_synchronously(self, local_server, cloudflare_rule_path):
         session = requests.Session()
 
-        with sw.fetch(session.get, f"{local_server}/challenge", job="test") as ctx:
+        with sw.fetch(session.get, f"{local_server}/challenge", job="test", rules=[cloudflare_rule_path]) as ctx:
             assert ctx.response is not None
             assert ctx.verdict is not None
             assert ctx.verdict.status == "blocked"
 
-    def test_fetch_with_healthy_response(self, local_server):
-        """fetch() returns ok verdict for healthy response."""
+    def test_fetch_with_healthy_response(self, local_server, cloudflare_rule_path):
         session = requests.Session()
 
-        with sw.fetch(session.get, local_server, job="test") as ctx:
+        with sw.fetch(session.get, local_server, job="test", rules=[cloudflare_rule_path]) as ctx:
             assert ctx.response.status_code == 200
             assert ctx.verdict.status == "ok"
 
@@ -120,11 +114,10 @@ class TestFetch:
 class TestGuardedWithRetry:
     """Tests for guarded() with retry libraries."""
 
-    def test_guarded_works_with_retry_pattern(self, local_server):
-        """guarded() integrates with retry pattern."""
+    def test_guarded_works_with_retry_pattern(self, local_server, cloudflare_rule_path):
         from tenacity import RetryError, retry, retry_if_exception_type, stop_after_attempt
 
-        session = sw.guarded(requests.Session(), job="test")
+        session = sw.guarded(requests.Session(), job="test", rules=[cloudflare_rule_path])
 
         attempts = [0]
 
@@ -144,11 +137,10 @@ class TestGuardedWithRetry:
         # Should have attempted twice (initial + 1 retry)
         assert attempts[0] == 2
 
-    def test_guarded_healthy_no_retry(self, local_server):
-        """guarded() doesn't trigger retry on healthy response."""
+    def test_guarded_healthy_no_retry(self, local_server, cloudflare_rule_path):
         from tenacity import retry, retry_if_exception_type
 
-        session = sw.guarded(requests.Session(), job="test")
+        session = sw.guarded(requests.Session(), job="test", rules=[cloudflare_rule_path])
 
         attempts = [0]
 
